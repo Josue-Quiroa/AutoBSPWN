@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# AutoBSPWN v3.0.0 — setFocus <ip> [nombre]
+F=$HOME/.config/bspwm/focus_ip
+N=$HOME/.config/bspwm/focus_name
+mkdir -p "$(dirname "$F")"
+[ -z "${1:-}" ] && { echo "Uso: setFocus <ip> [nombre]"; exit 1; }
+IP=$1
+NAME=${2:-}
+if ! [[ "$IP" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+  echo "IP inválida: $IP"
+  exit 1
+fi
+# Reject octets > 255
+ok=1
+IFS=. read -r a b c d <<<"$IP"
+for o in "$a" "$b" "$c" "$d"; do
+  [ "$o" -ge 0 ] 2>/dev/null && [ "$o" -le 255 ] 2>/dev/null || ok=0
+done
+if [ "$ok" -ne 1 ]; then
+  echo "IP inválida: $IP"
+  exit 1
+fi
+printf '%s\n' "$IP" >"$F"
+if [ -n "$NAME" ]; then
+  printf '%s\n' "$NAME" >"$N"
+  if ! awk -v ip="$IP" '$1==ip{f=1} END{exit !f}' /etc/hosts 2>/dev/null; then
+    echo "Tip: sudo sh -c 'echo \"$IP $NAME\" >> /etc/hosts'"
+  fi
+else
+  rm -f "$N"
+fi
+# Recent targets for the rofi Target HUD (newest first, unique by IP, max 20)
+H=$HOME/.config/bspwm/focus_history
+{
+  printf '%s\t%s\n' "$IP" "$NAME"
+  [ -f "$H" ] && awk -F'\t' -v ip="$IP" '$1!=ip' "$H"
+} 2>/dev/null | head -n 20 >"$H.tmp" && mv -f "$H.tmp" "$H"
+# The polybar Target HUD polls every 2s; no bar restart needed (restarting flickers the tray)
+notify-send AutoBSPWN "Focus → ${NAME:+$NAME }$IP" 2>/dev/null || true
+echo "Focus → ${NAME:+$NAME }$IP"

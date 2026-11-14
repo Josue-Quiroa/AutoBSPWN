@@ -1,0 +1,78 @@
+/* AutoBSPWN rofi v3.0.0 — compact centered launcher with a colored search bar
+   (look inspired by r1vs3c/auto-bspwm; own theme). Colors: colors.rasi (theme-sync). */
+configuration {
+  modi: "drun,run,window,ssh";
+  show-icons: true;
+  icon-theme: "Papirus-Dark";
+  font: "JetBrainsMono Nerd Font 10";
+  display-drun: "";
+  display-run: "";
+  display-window: "";
+  display-ssh: "󰣀";
+  drun-display-format: "{name}";
+  matching: "fuzzy";
+  sorting-method: "fzf";
+  hover-select: true;
+  me-select-entry: "";
+  me-accept-entry: "MousePrimary";
+}
+/* Fallback palette (amethyst); colors.rasi overrides it */
+* {
+  bg:     #1b1b22f2;
+  bg-alt: #2a2a36;
+  fg:     #ececf4;
+  accent: #9575cd;
+  accent2: #7e57c2;
+  muted:  #7a7a8c;
+  urgent: #ef5350;
+  on-accent: #0f0f14;
+  shade1: #311b92;
+  shade2: #4527a0;
+  shade3: #512da8;
+  on-shade: #ffffff;
+  on-shade-dim: #c5b8e8;
+  transparent: #00000000;
+}
+@import "colors.rasi"
+* { background-color: transparent; text-color: @fg; }
+window {
+  background-color: @bg;
+  border: 0;
+  border-radius: 12px;
+  width: 400px;
+  location: center;
+}
+mainbox { children: [ inputbar, message, listview ]; spacing: 0; padding: 0; }
+inputbar {
+  background-color: @shade2;
+  border-radius: 12px;
+  children: [ prompt, entry ];
+  spacing: 0;
+}
+prompt {
+  background-color: @shade1;
+  text-color: @on-shade;
+  padding: 10px 14px;
+  border-radius: 12px 0 0 12px;
+}
+entry {
+  text-color: @on-shade;
+  placeholder: "Buscar…";
+  placeholder-color: @on-shade-dim;
+  padding: 10px;
+  cursor: text;
+}
+listview { lines: 10; columns: 1; spacing: 4px; padding: 10px; cycle: true; dynamic: true; scrollbar: false; }
+element { padding: 7px 10px; border-radius: 8px; spacing: 10px; cursor: pointer; }
+element-icon { size: 20px; cursor: inherit; }
+element-text { vertical-align: 0.5; cursor: inherit; text-color: inherit; }
+/* explicit states: otherwise rofi's built-in default theme paints them light */
+element normal.normal, element alternate.normal { background-color: transparent; text-color: @fg; }
+element normal.urgent, element alternate.urgent { background-color: transparent; text-color: @urgent; }
+element normal.active, element alternate.active { background-color: transparent; text-color: @accent; }
+element selected.normal { background-color: @shade3; text-color: @on-shade; }
+element selected.urgent { background-color: @urgent; text-color: @on-shade; }
+element selected.active { background-color: @shade2; text-color: @on-shade; }
+/* -mesg line used by the AutoBSPWN menus (Target HUD, VPN, tools, atajos…) */
+message { padding: 8px 10px 0 10px; }
+textbox { background-color: @bg-alt; text-color: @accent; border-radius: 8px; padding: 6px 10px; }

@@ -1,0 +1,11 @@
+# AutoBSPWN theme: amethyst (default) — deep-purple pills on a neutral dark bar.
+# Material Design "Deep Purple" tones; look inspired by r1vs3c/auto-bspwm (own values/keys).
+BG="#1b1b22"; BG_ALT="#2a2a36"; FG="#ececf4"; MUTED="#7a7a8c"
+ACCENT="#9575cd"; ACCENT2="#7e57c2"; URGENT="#ef5350"; SUCCESS="#81c784"; CRUST="#0f0f14"
+ROFI_BG_ALPHA="f2"
+BORDER_FOCUSED="#7e57c2"; BORDER_NORMAL="#2a2a36"; BORDER_ACTIVE="#5e35b1"; PRESEL="#9575cd"
+K_CURSOR="#b39ddb"; K_SEL_BG="#b39ddb"; K_URL="#9fa8da"
+K_COLORS=("#2a2a36" "#ef5350" "#81c784" "#ffd54f" "#7986cb" "#ba68c8" "#4dd0e1" "#d0d0e0"
+          "#4a4a5a" "#e57373" "#a5d6a7" "#ffe082" "#9fa8da" "#ce93d8" "#80deea" "#ffffff")
+SHADE1="#311b92"; SHADE2="#4527a0"; SHADE3="#512da8"; ON_SHADE="#ffffff"; ON_SHADE_DIM="#c5b8e8"
+WALL="cherry-field-mountains.jpg"

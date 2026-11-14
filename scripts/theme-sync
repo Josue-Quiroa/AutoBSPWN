@@ -1,0 +1,298 @@
+#!/usr/bin/env bash
+# AutoBSPWN v3.0.0 — theme-sync: one theme for polybar, bspwm, kitty, rofi, dunst, lock & wallpaper
+#   theme-sync <tema>        aplicar (amethyst | mocha | macchiato | hacker | los tuyos)
+#   theme-sync --next|--prev ciclar (Super+Shift+t)
+#   theme-sync --menu        selector rofi (Super+Alt+t)
+#   theme-sync --apply       reaplicar el tema actual (tras reinstalar)
+#   theme-sync --list | --current
+#   --no-reload              sólo escribe archivos (lo usa Install.sh fuera de X)
+# A theme = ~/.config/polybar/themes/<t>.ini  +  ~/.config/bspwm/themes/<t>.theme
+# Wallpaper per theme: ~/.config/bspwm/walls/<t>.{png,jpg,jpeg,webp} if you add one,
+#   else WALL= from the .theme file (bundled wallpapers). No text/nick is ever drawn.
+#   touch ~/.config/bspwm/.no-theme-wall to keep your own wallpaper when switching themes
+set -u
+export PATH="$HOME/.local/bin:$PATH"
+
+PB="$HOME/.config/polybar"
+BW="$HOME/.config/bspwm"
+STATE="$PB/.current-theme"
+WALLS="$BW/walls"
+RELOAD=1
+
+say() { echo "$*"; }
+note() { notify-send -a AutoBSPWN AutoBSPWN "$*" 2>/dev/null || true; }
+
+themes() {
+  local f t
+  for f in "$PB"/themes/*.ini; do
+    [ -f "$f" ] || continue
+    t=$(basename "$f" .ini)
+    [ -f "$BW/themes/$t.theme" ] && printf '%s\n' "$t"
+  done | sort -u | awk '
+    # Fixed order for the stock themes, then the user ones
+    $0=="amethyst"{a[1]=$0;next} $0=="mocha"{a[2]=$0;next} $0=="macchiato"{a[3]=$0;next} $0=="hacker"{a[4]=$0;next}
+    {extra[++n]=$0}
+    END{for(i=1;i<=4;i++) if(a[i]!="") print a[i]; for(i=1;i<=n;i++) print extra[i]}'
+}
+
+current() {
+  local t=
+  [ -f "$STATE" ] && t=$(tr -d '[:space:]' <"$STATE")
+  printf '%s\n' "${t:-amethyst}"
+}
+
+step() {
+  # $1 = +1 | -1
+  local cur list n i
+  cur=$(current)
+  mapfile -t list < <(themes)
+  n=${#list[@]}
+  [ "$n" -gt 0 ] || { say "No hay temas en $PB/themes"; exit 1; }
+  for i in "${!list[@]}"; do
+    if [ "${list[$i]}" = "$cur" ]; then
+      printf '%s\n' "${list[$(( (i + $1 + n) % n ))]}"
+      return
+    fi
+  done
+  printf '%s\n' "${list[0]}"
+}
+
+# ---- writers --------------------------------------------------------------
+write_kitty() {
+  local d="$HOME/.config/kitty" i
+  mkdir -p "$d"
+  {
+    echo "# Generado por theme-sync ($THEME). No editar: se sobrescribe."
+    echo "foreground $FG"
+    echo "background $BG"
+    echo "selection_foreground $BG"
+    echo "selection_background $K_SEL_BG"
+    echo "cursor $K_CURSOR"
+    echo "cursor_text_color $BG"
+    echo "url_color $K_URL"
+    echo "active_border_color $ACCENT"
+    echo "inactive_border_color $BG_ALT"
+    echo "active_tab_foreground   $BG"
+    echo "active_tab_background   $ACCENT"
+    echo "inactive_tab_foreground $FG"
+    echo "inactive_tab_background $BG_ALT"
+    echo "tab_bar_background      $BG"
+    for i in "${!K_COLORS[@]}"; do
+      printf 'color%-2s %s\n' "$i" "${K_COLORS[$i]}"
+    done
+  } >"$d/theme.conf.tmp" && mv -f "$d/theme.conf.tmp" "$d/theme.conf"
+  # Old v2.0 kitty.conf had colors inline (they would override the include): add include if missing
+  if [ -f "$d/kitty.conf" ] && ! grep -qE '^[[:space:]]*include[[:space:]]+theme\.conf' "$d/kitty.conf"; then
+    printf '\n# AutoBSPWN theme-sync\ninclude theme.conf\n' >>"$d/kitty.conf"
+  fi
+}
+
+write_rofi() {
+  local d="$HOME/.config/rofi"
+  mkdir -p "$d"
+  cat >"$d/colors.rasi.tmp" <<RASI
+/* Generado por theme-sync ($THEME). No editar: se sobrescribe. */
+* {
+  bg:     ${BG}${ROFI_BG_ALPHA:-ee};
+  bg-alt: ${BG_ALT};
+  fg:     ${FG};
+  accent: ${ACCENT};
+  accent2: ${ACCENT2};
+  muted:  ${MUTED};
+  urgent: ${URGENT};
+  on-accent: ${CRUST};
+  shade1: ${SHADE1};
+  shade2: ${SHADE2};
+  shade3: ${SHADE3};
+  on-shade: ${ON_SHADE};
+  on-shade-dim: ${ON_SHADE_DIM};
+  transparent: #00000000;
+}
+RASI
+  mv -f "$d/colors.rasi.tmp" "$d/colors.rasi"
+}
+
+write_dunst() {
+  local f="$HOME/.config/dunst/dunstrc" tmp
+  [ -f "$f" ] || return 0
+  tmp=$(mktemp "${f}.XXXXXX") || return 0
+  # Replace (or append) the managed block; everything else in dunstrc is untouched
+  if awk -v bg="$BG" -v fg="$FG" -v ac="$ACCENT" -v ur="$URGENT" -v mu="$MUTED" -v th="$THEME" '
+    /^# >>> autobspwn-theme/ {skip=1; next}
+    /^# <<< autobspwn-theme/ {skip=0; next}
+    !skip {print}
+    END {
+      print "# >>> autobspwn-theme (theme-sync: " th ") — no editar este bloque"
+      print "[urgency_low]"
+      print "    background = \"" bg "\""
+      print "    foreground = \"" fg "\""
+      print "    frame_color = \"" mu "\""
+      print "    timeout = 4"
+      print ""
+      print "[urgency_normal]"
+      print "    background = \"" bg "\""
+      print "    foreground = \"" fg "\""
+      print "    frame_color = \"" ac "\""
+      print "    timeout = 7"
+      print ""
+      print "[urgency_critical]"
+      print "    background = \"" bg "\""
+      print "    foreground = \"" ur "\""
+      print "    frame_color = \"" ur "\""
+      print "    timeout = 0"
+      print "# <<< autobspwn-theme"
+    }' "$f" >"$tmp"; then
+    mv -f "$tmp" "$f"
+  else
+    rm -f "$tmp"
+  fi
+}
+
+# jgmenu (right-click desktop menu). Only touches a jgmenurc created by AutoBSPWN.
+write_jgmenu() {
+  local d="$HOME/.config/jgmenu" f
+  f="$d/jgmenurc"
+  if [ -f "$f" ] && ! grep -q 'autobspwn-managed' "$f"; then return 0; fi
+  mkdir -p "$d" || return 0
+  cat >"$f.tmp" <<JG || return 0
+# autobspwn-managed (theme-sync: ${THEME}) — borra esta línea para personalizarlo a mano
+position_mode = pointer
+menu_width = 230
+menu_padding_top = 8
+menu_padding_right = 8
+menu_padding_bottom = 8
+menu_padding_left = 8
+menu_radius = 10
+menu_border = 1
+item_height = 28
+item_padding_x = 10
+item_radius = 6
+sep_height = 7
+font = JetBrainsMono Nerd Font 10
+icon_size = 16
+icon_theme = Papirus-Dark
+color_menu_bg = ${BG} 96
+color_menu_border = ${ACCENT} 90
+color_norm_bg = ${BG} 0
+color_norm_fg = ${FG} 100
+color_sel_bg = ${SHADE3} 100
+color_sel_fg = ${ON_SHADE} 100
+color_sel_border = ${SHADE3} 100
+color_sep_fg = ${MUTED} 60
+JG
+  mv -f "$f.tmp" "$f"
+}
+
+theme_wall() {
+  local e
+  [ -f "$BW/.no-theme-wall" ] && return 1
+  for e in png jpg jpeg webp; do
+    [ -f "$WALLS/$THEME.$e" ] && { printf '%s\n' "$WALLS/$THEME.$e"; return 0; }
+  done
+  [ -n "${WALL:-}" ] && [ -f "$WALLS/$WALL" ] && { printf '%s\n' "$WALLS/$WALL"; return 0; }
+  return 1
+}
+
+# .fehbg is what bspwmrc runs at login to restore the wallpaper
+write_fehbg() {
+  printf "#!/bin/sh\nfeh --no-fehbg --bg-fill '%s'\n" "${1//\'/\'\\\'\'}" >"$HOME/.fehbg" && chmod +x "$HOME/.fehbg"
+}
+
+# ---- reloaders ------------------------------------------------------------
+reload_all() {
+  [ -n "${DISPLAY:-}" ] || return 0
+  if command -v bspc >/dev/null 2>&1 && bspc query -M >/dev/null 2>&1; then
+    bspc config focused_border_color  "$BORDER_FOCUSED"
+    bspc config normal_border_color   "$BORDER_NORMAL"
+    bspc config active_border_color   "$BORDER_ACTIVE"
+    bspc config presel_feedback_color "$PRESEL"
+  fi
+  # kitty re-reads kitty.conf (and theme.conf) on SIGUSR1 (kitty ≥ 0.24)
+  pkill -USR1 -u "$(id -u)" -x kitty 2>/dev/null || true
+  # SIGUSR1 *pauses* dunst — never use it. dunstctl reload (≥1.9) or restart.
+  if pgrep -u "$(id -u)" -x dunst >/dev/null 2>&1; then
+    if ! { command -v dunstctl >/dev/null 2>&1 && dunstctl reload >/dev/null 2>&1; }; then
+      pkill -u "$(id -u)" -x dunst 2>/dev/null || true
+      sleep 0.2
+      (dunst -config "$HOME/.config/dunst/dunstrc" >/dev/null 2>&1 &)
+    fi
+  fi
+  local w
+  if command -v feh >/dev/null 2>&1 && w=$(theme_wall); then
+    feh --no-fehbg --bg-fill "$w" 2>/dev/null
+    write_fehbg "$w"
+  fi
+  if pgrep -u "$(id -u)" -x polybar >/dev/null 2>&1 || [ -n "${AUTOBSPWN_FORCE_BAR:-}" ]; then
+    if [ -x "$PB/launch.sh" ]; then
+      (setsid -f "$PB/launch.sh" >/dev/null 2>&1 &)
+    else
+      polybar-msg cmd restart >/dev/null 2>&1 || true
+    fi
+  fi
+}
+
+apply() {
+  THEME=$1
+  local ini="$PB/themes/$THEME.ini" app="$BW/themes/$THEME.theme"
+  if [ ! -f "$ini" ] || [ ! -f "$app" ]; then
+    say "Tema no encontrado: $THEME (disponibles: $(themes | paste -sd' ' -))"
+    exit 1
+  fi
+  # Defaults so a hand-made theme that misses a key cannot trip "set -u"
+  BG="#1e1e2e"; BG_ALT="#313244"; FG="#cdd6f4"; MUTED="#6c7086"
+  ACCENT="#cba6f7"; ACCENT2="#89b4fa"; URGENT="#f38ba8"; SUCCESS="#a6e3a1"; CRUST="#11111b"
+  ROFI_BG_ALPHA="ee"
+  BORDER_FOCUSED="$ACCENT"; BORDER_NORMAL="$BG_ALT"; BORDER_ACTIVE="$ACCENT2"; PRESEL="$SUCCESS"
+  K_CURSOR="#f5e0dc"; K_SEL_BG="#f5e0dc"; K_URL="$ACCENT2"
+  K_COLORS=("#45475a" "#f38ba8" "#a6e3a1" "#f9e2af" "#89b4fa" "#f5c2e7" "#94e2d5" "#bac2de"
+            "#585b70" "#f38ba8" "#a6e3a1" "#f9e2af" "#89b4fa" "#f5c2e7" "#94e2d5" "#a6adc8")
+  SHADE1="$ACCENT"; SHADE2="$ACCENT2"; SHADE3="$BG_ALT"; ON_SHADE="$CRUST"; ON_SHADE_DIM="$MUTED"
+  WALL=""
+  # shellcheck source=/dev/null
+  . "$app"
+  cp -f "$ini" "$PB/colors.ini"
+  printf '%s\n' "$THEME" >"$STATE"
+  write_kitty
+  write_rofi
+  write_dunst
+  write_jgmenu
+  if [ "$RELOAD" -eq 1 ]; then
+    reload_all
+    note "Tema: $THEME"
+  else
+    # Outside X (installer): prepare the wallpaper; only create .fehbg if there is none yet
+    local w
+    if w=$(theme_wall 2>/dev/null) && [ ! -e "$HOME/.fehbg" ]; then
+      write_fehbg "$w"
+    fi
+  fi
+  say "Tema: $THEME"
+}
+
+args=()
+for a in "$@"; do
+  case "$a" in
+    --no-reload) RELOAD=0 ;;
+    *) args+=("$a") ;;
+  esac
+done
+set -- "${args[@]+"${args[@]}"}"
+
+case "${1:-}" in
+  ""|-h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  --list)    themes ;;
+  --current) current ;;
+  --next)    apply "$(step 1)" ;;
+  --prev)    apply "$(step -1)" ;;
+  --apply)   apply "$(current)" ;;
+  --menu)
+    command -v rofi >/dev/null 2>&1 || { say "rofi no está instalado"; exit 1; }
+    cur=$(current)
+    pick=$(themes | awk -v c="$cur" '{ print ($0==c ? "● " : "  ") $0 }' \
+      | rofi -dmenu -i -p Tema -mesg "Actual: $cur · polybar, bspwm, kitty, rofi, dunst y wallpaper") || exit 0
+    pick=${pick#● }; pick=${pick#  }
+    [ -n "$pick" ] && apply "$pick"
+    ;;
+  -*) say "Opción desconocida: $1"; exit 1 ;;
+  *)  apply "$1" ;;
+esac

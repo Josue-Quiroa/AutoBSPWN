@@ -1,0 +1,12 @@
+# AutoBSPWN v3.0.0 — greenclip (clipboard history). Deployed once; your edits are kept.
+[greenclip]
+  history_file = "~/.cache/greenclip.history"
+  max_history_length = 150
+  max_selection_size_bytes = 0
+  trim_space_from_selection = true
+  use_primary_selection_as_input = false
+  # Do not record password managers
+  blacklisted_applications = ["KeePassXC", "keepassxc", "Bitwarden", "bitwarden"]
+  enable_image_support = false
+  image_cache_directory = "/tmp/greenclip"
+  static_history = []

@@ -1,0 +1,270 @@
+# AutoBSPWN sxhkd v3.0.0
+# Convention (read by keys-help.sh → Super+F1 and by ATAJOS.md):
+#   "## Categoría" starts a group · "# descripción" goes right above each chord.
+# Extra chords inspired by yoodreamer/AutoBSPWM and r1vs3c/auto-bspwm (own config, no duplicates).
+
+## Terminal y apps
+# Terminal (kitty)
+super + Return
+    kitty
+# Terminal flotante
+super + shift + Return
+    kitty --class floating
+# Scratchpad: terminal desplegable con tmux
+super + u
+    $HOME/.config/bspwm/scripts/scratchpad.sh
+# Lanzador de aplicaciones (rofi)
+super + d
+    rofi -show drun
+# Ejecutar un comando (rofi)
+super + r
+    rofi -show run
+# Lista de ventanas abiertas (rofi)
+super + Tab
+    rofi -show window
+# Gestor de archivos
+super + e
+    $HOME/.config/bspwm/scripts/files.sh
+# Navegador web
+super + shift + f
+    $HOME/.config/bspwm/scripts/browser.sh
+# Burp Suite (si está instalado)
+super + shift + b
+    $HOME/.config/bspwm/scripts/tools-menu.sh --run burpsuite
+
+## Pentest
+# Target HUD: menú del target (nmap, ssh, web, notas…)
+super + i
+    $HOME/.config/bspwm/scripts/target-menu.sh
+# Fijar target (setFocus IP nombre)
+super + shift + i
+    kitty --class floating -e $HOME/.config/bspwm/scripts/focus-prompt.sh
+# Quitar target (clearFocus)
+super + shift + c
+    $HOME/.local/bin/clearFocus
+# VPN / lab switcher
+super + v
+    $HOME/.config/bspwm/scripts/vpn-menu.sh
+# Reconectar la última VPN
+super + shift + v
+    $HOME/.config/bspwm/scripts/vpn-menu.sh --reconnect
+# Launcher de tools de pentest
+super + p
+    $HOME/.config/bspwm/scripts/tools-menu.sh
+# Historial del portapapeles
+super + c
+    $HOME/.config/bspwm/scripts/clipboard.sh
+
+## Apariencia
+# Selector de wallpapers con vista previa
+super + w
+    $HOME/.config/bspwm/scripts/wallpaper.sh
+# Wallpaper aleatorio
+super + shift + w
+    $HOME/.config/bspwm/scripts/wallpaper.sh --random
+# Siguiente tema (amethyst → mocha → macchiato → hacker)
+super + shift + t
+    $HOME/.config/bspwm/scripts/theme-menu.sh --next
+# Selector de temas
+super + alt + t
+    $HOME/.config/bspwm/scripts/theme-menu.sh
+# Mostrar / ocultar la barra
+super + b
+    polybar-msg cmd toggle >/dev/null 2>&1
+# Reiniciar la barra (polybar)
+super + shift + p
+    $HOME/.config/polybar/launch.sh
+# Más / menos espacio entre ventanas (gaps)
+super + alt + {equal,minus}
+    bspc config -d focused window_gap $(( $(bspc config -d focused window_gap) {+,-} 2 ))
+
+## Ventanas
+# Cerrar ventana
+super + q
+    bspc node -c
+# Matar ventana (kill)
+super + shift + q
+    bspc node -k
+# Modo mosaico (tiled)
+super + t
+    bspc node -t tiled
+# Modo flotante
+super + s
+    bspc node -t floating
+# Alternar flotante / mosaico
+super + shift + space
+    bspc node -t '~floating'
+# Modo pseudo-tiled
+super + shift + s
+    bspc node -t pseudo_tiled
+# Pantalla completa
+super + f
+    bspc node -t '~fullscreen'
+# Alternar layout mosaico / monocle
+super + m
+    bspc desktop -l next
+# Intercambiar con la ventana más grande
+super + g
+    bspc node -s biggest.window
+# Llevar la ventana marcada a la preselección
+super + y
+    bspc node newest.marked.local -n newest.!automatic.local
+# Marcar / bloquear / fijar en todos los escritorios / privada
+super + ctrl + {m,x,y,z}
+    bspc node -g {marked,locked,sticky,private}
+# Ocultar (minimizar) ventana
+super + n
+    $HOME/.config/bspwm/scripts/hide-node.sh --hide
+# Recuperar ventanas ocultas (menú)
+super + shift + n
+    $HOME/.config/bspwm/scripts/hide-node.sh --menu
+
+## Foco y movimiento
+# Mover el foco (flechas)
+super + {Left,Down,Up,Right}
+    bspc node -f {west,south,north,east}
+# Mover el foco (vim)
+super + {h,j,k,l}
+    bspc node -f {west,south,north,east}
+# Mover ventana flotante / intercambiar ventana en mosaico (flechas)
+super + shift + {Left,Down,Up,Right}
+    $HOME/.config/bspwm/scripts/smart-move.sh {west,south,north,east}
+# Mover ventana flotante / intercambiar ventana en mosaico (vim)
+super + shift + {h,j,k,l}
+    $HOME/.config/bspwm/scripts/smart-move.sh {west,south,north,east}
+# Redimensionar inteligente (crece hacia la flecha o encoge)
+super + alt + {Left,Down,Up,Right}
+    $HOME/.config/bspwm/scripts/bspwm-resize.sh {west,south,north,east}
+# Redimensionar inteligente (vim)
+super + alt + {h,j,k,l}
+    $HOME/.config/bspwm/scripts/bspwm-resize.sh {west,south,north,east}
+# Foco al nodo padre / hermano / primer hijo / segundo hijo
+super + alt + {p,b,comma,period}
+    bspc node -f @{parent,brother,first,second}
+# Volver a la ventana anterior
+super + grave
+    bspc node -f last
+# Ventana más antigua / más reciente del historial
+super + {o,shift + o}
+    bspc wm -h off; bspc node {older,newer} -f; bspc wm -h on
+
+## Escritorios
+# Ir al escritorio 1-10
+super + {1-9,0}
+    bspc desktop -f 'focused:^{1-9,10}'
+# Enviar la ventana al escritorio 1-10 (y seguirla)
+super + shift + {1-9,0}
+    bspc node -d 'focused:^{1-9,10}' --follow
+# Escritorio anterior / siguiente
+super + bracket{left,right}
+    bspc desktop -f {prev,next}.local
+# Volver al último escritorio
+super + shift + grave
+    bspc desktop -f last
+
+## Preselección
+# Preseleccionar dirección para la próxima ventana (flechas)
+super + ctrl + {Left,Down,Up,Right}
+    bspc node -p {west,south,north,east}
+# Preseleccionar dirección (vim)
+super + ctrl + {h,j,k,l}
+    bspc node -p {west,south,north,east}
+# Preseleccionar dirección (estilo r1vs3c/yoodreamer)
+super + ctrl + alt + {Left,Down,Up,Right}
+    bspc node -p {west,south,north,east}
+# Proporción de la preselección (10%-90%)
+super + ctrl + {1-9}
+    bspc node -o 0.{1-9}
+# Cancelar la preselección
+super + ctrl + space
+    bspc node -p cancel
+# Cancelar la preselección (estilo r1vs3c/yoodreamer)
+super + ctrl + alt + space
+    bspc node -p cancel
+# Cancelar todas las preselecciones del escritorio
+super + ctrl + shift + space
+    bspc query -N -d | xargs -I id -n 1 bspc node id -p cancel
+
+## Capturas
+# Captura de una zona (guarda + copia al portapapeles)
+Print
+    $HOME/.config/bspwm/scripts/screenshot.sh area
+# Captura de una zona
+super + a
+    $HOME/.config/bspwm/scripts/screenshot.sh area
+# Captura de pantalla completa
+super + Print
+    $HOME/.config/bspwm/scripts/screenshot.sh full
+# Captura de la ventana activa
+super + shift + Print
+    $HOME/.config/bspwm/scripts/screenshot.sh window
+# Captura completa con 5 s de espera
+super + ctrl + Print
+    $HOME/.config/bspwm/scripts/screenshot.sh delay
+
+## Sistema
+# Hoja de atajos (esta lista)
+super + F1
+    $HOME/.config/bspwm/scripts/keys-help.sh
+# Hoja de atajos
+super + slash
+    $HOME/.config/bspwm/scripts/keys-help.sh
+# Calendario
+super + alt + c
+    $HOME/.config/bspwm/scripts/calendar.sh
+# Menú del escritorio (también clic derecho sobre el fondo)
+super + shift + m
+    $HOME/.config/bspwm/scripts/desktop-menu.sh --force
+# Menú contextual al hacer clic derecho sobre el fondo
+~button3
+    $HOME/.config/bspwm/scripts/desktop-menu.sh
+# Bloquear pantalla
+super + shift + x
+    $HOME/.config/bspwm/scripts/lock.sh
+# Bloquear pantalla (estilo r1vs3c)
+ctrl + alt + l
+    $HOME/.config/bspwm/scripts/lock.sh
+# Menú de apagado
+super + shift + e
+    $HOME/.config/bspwm/scripts/power-menu.sh
+# Recargar atajos (sxhkd)
+super + Escape
+    pkill -USR1 -x sxhkd; notify-send AutoBSPWN "Atajos recargados"
+# Reiniciar bspwm
+super + shift + r
+    bspc wm -r
+# Reiniciar bspwm (estilo r1vs3c)
+super + alt + r
+    bspc wm -r
+# Cerrar sesión (salir de bspwm)
+super + alt + q
+    bspc quit
+
+## Multimedia
+# Subir volumen
+XF86AudioRaiseVolume
+    pactl set-sink-volume @DEFAULT_SINK@ +5%
+# Bajar volumen
+XF86AudioLowerVolume
+    pactl set-sink-volume @DEFAULT_SINK@ -5%
+# Silenciar
+XF86AudioMute
+    pactl set-sink-mute @DEFAULT_SINK@ toggle
+# Silenciar micrófono
+XF86AudioMicMute
+    pactl set-source-mute @DEFAULT_SOURCE@ toggle
+# Subir volumen (VMs sin teclas multimedia)
+super + F11
+    pactl set-sink-volume @DEFAULT_SINK@ +5%
+# Bajar volumen (VMs)
+super + F10
+    pactl set-sink-volume @DEFAULT_SINK@ -5%
+# Silenciar (VMs)
+super + F9
+    pactl set-sink-mute @DEFAULT_SINK@ toggle
+# Subir brillo
+XF86MonBrightnessUp
+    brightnessctl -q set +10% 2>/dev/null || xbacklight -inc 10 2>/dev/null || true
+# Bajar brillo
+XF86MonBrightnessDown
+    brightnessctl -q set 10%- 2>/dev/null || xbacklight -dec 10 2>/dev/null || true

@@ -1,0 +1,17 @@
+/* Generado por theme-sync (amethyst). No editar: se sobrescribe. */
+* {
+  bg:     #1b1b22f2;
+  bg-alt: #2a2a36;
+  fg:     #ececf4;
+  accent: #9575cd;
+  accent2: #7e57c2;
+  muted:  #7a7a8c;
+  urgent: #ef5350;
+  on-accent: #0f0f14;
+  shade1: #311b92;
+  shade2: #4527a0;
+  shade3: #512da8;
+  on-shade: #ffffff;
+  on-shade-dim: #c5b8e8;
+  transparent: #00000000;
+}

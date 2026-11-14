@@ -1,0 +1,11 @@
+# AutoBSPWN theme: Catppuccin Mocha (palette values; key names are AutoBSPWN own)
+BG="#1e1e2e"; BG_ALT="#313244"; FG="#cdd6f4"; MUTED="#6c7086"
+ACCENT="#cba6f7"; ACCENT2="#89b4fa"; URGENT="#f38ba8"; SUCCESS="#a6e3a1"; CRUST="#11111b"
+ROFI_BG_ALPHA="ee"
+BORDER_FOCUSED="#cba6f7"; BORDER_NORMAL="#313244"; BORDER_ACTIVE="#89b4fa"; PRESEL="#a6e3a1"
+K_CURSOR="#f5e0dc"; K_SEL_BG="#f5e0dc"; K_URL="#89b4fa"
+K_COLORS=("#45475a" "#f38ba8" "#a6e3a1" "#f9e2af" "#89b4fa" "#f5c2e7" "#94e2d5" "#bac2de"
+          "#585b70" "#f38ba8" "#a6e3a1" "#f9e2af" "#89b4fa" "#f5c2e7" "#94e2d5" "#a6adc8")
+# v3 layout: polybar pill shades (shade1 = outer, shade3 = inner), text on them, wallpaper
+SHADE1="#cba6f7"; SHADE2="#b4befe"; SHADE3="#89b4fa"; ON_SHADE="#11111b"; ON_SHADE_DIM="#45475a"
+WALL="sunset-station-sakura.jpg"

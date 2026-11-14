@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+# AutoBSPWN bspwmrc v3.0.0 (gaps / thin borders / docked bar inspired by r1vs3c/auto-bspwm)
+export PATH="$HOME/.local/bin:$PATH"
+export _JAVA_AWT_WM_NONREPARENTING=1
+
+# Do not stack daemons when the WM is reloaded (Super+Shift+r)
+start_once() {
+  local bin=$1
+  command -v "$bin" >/dev/null 2>&1 || return 0
+  pgrep -u "$(id -u)" -x "$bin" >/dev/null 2>&1 && return 0
+  shift
+  "$@" &
+}
+
+# ---- Notifications FIRST -------------------------------------------------
+# Anything that calls notify-send before dunst is up would D-Bus-activate another
+# daemon (MATE / XFCE / GNOME). Kill those (this session only) and own the bus name.
+# (~/.local/share/dbus-1/services/org.freedesktop.Notifications.service routes
+#  activation to dunst only while bspwm runs; MATE keeps its own daemon.)
+for rival in mate-notification-daemon xfce4-notifyd notify-osd notification-daemon; do
+  if pgrep -u "$(id -u)" -f "/$rival( |$)" >/dev/null 2>&1 || pgrep -u "$(id -u)" -x "$rival" >/dev/null 2>&1; then
+    [ "$rival" = xfce4-notifyd ] && systemctl --user stop xfce4-notifyd 2>/dev/null
+    pkill -u "$(id -u)" -f "/$rival( |$)" 2>/dev/null || true
+    pkill -u "$(id -u)" -x "$rival" 2>/dev/null || true
+  fi
+done
+if ! pgrep -u "$(id -u)" -x dunst >/dev/null 2>&1 && command -v dunst >/dev/null 2>&1; then
+  dunst -config "$HOME/.config/dunst/dunstrc" &
+fi
+
+pgrep -u "$(id -u)" -x sxhkd >/dev/null 2>&1 || sxhkd &
+
+# Cursor (avoids the default X "X" pointer)
+command -v xsetroot >/dev/null 2>&1 && xsetroot -cursor_name left_ptr
+
+# Desktops: I–X on every monitor (VMs usually have one)
+if command -v bspc >/dev/null 2>&1; then
+  if mons=$(bspc query -M --names 2>/dev/null) && [ -n "$mons" ]; then
+    for m in $mons; do
+      bspc monitor "$m" -d I II III IV V VI VII VIII IX X
+    done
+  else
+    bspc monitor -d I II III IV V VI VII VIII IX X
+  fi
+fi
+
+bspc config border_width         2
+bspc config window_gap          10
+# polybar is a docked bar now (it reserves its own space): no extra top padding
+bspc config top_padding          0
+bspc config bottom_padding       0
+bspc config left_padding         0
+bspc config right_padding        0
+bspc config split_ratio          0.52
+bspc config borderless_monocle   true
+bspc config gapless_monocle      true
+bspc config focus_follows_pointer true
+bspc config pointer_follows_focus false
+bspc config pointer_motion_interval 7
+bspc config remove_disabled_monitors true
+bspc config remove_unplugged_monitors true
+bspc config merge_overlapping_monitors true
+
+# Theme colors: amethyst defaults, then the active theme-sync theme (Super+Shift+t)
+BORDER_NORMAL="#2a2a36"; BORDER_ACTIVE="#5e35b1"; BORDER_FOCUSED="#7e57c2"; PRESEL="#9575cd"
+_theme=$(tr -d '[:space:]' <"$HOME/.config/polybar/.current-theme" 2>/dev/null || true)
+[ -n "$_theme" ] || _theme=amethyst
+if [ -n "$_theme" ] && [ -f "$HOME/.config/bspwm/themes/$_theme.theme" ]; then
+  # shellcheck source=/dev/null
+  . "$HOME/.config/bspwm/themes/$_theme.theme"
+fi
+bspc config normal_border_color   "$BORDER_NORMAL"
+bspc config active_border_color   "$BORDER_ACTIVE"
+bspc config focused_border_color  "$BORDER_FOCUSED"
+bspc config presel_feedback_color "$PRESEL"
+
+# Rules (removed first: "bspc wm -r" re-runs this file and rules would pile up)
+bspc rule -r '*' 2>/dev/null || true
+bspc rule -a feh state=floating
+bspc rule -a Rofi state=floating sticky=on layer=above
+bspc rule -a floating state=floating
+bspc rule -a kitty:floating state=floating center=on rectangle=900x550+0+0
+bspc rule -a Gnome-calculator state=floating
+bspc rule -a Galculator state=floating
+bspc rule -a Pavucontrol state=floating
+bspc rule -a Blueman-manager state=floating
+bspc rule -a Nitrogen state=floating
+bspc rule -a Gpick state=floating
+bspc rule -a Lxappearance state=floating
+bspc rule -a Yad state=floating
+bspc rule -a yad state=floating
+bspc rule -a Gsimplecal state=floating
+bspc rule -a 'autobspwn-cal' state=floating sticky=on
+bspc rule -a jgmenu manage=off
+bspc rule -a flameshot state=floating
+bspc rule -a scratchterm sticky=on state=floating hidden=on center=on rectangle=1000x400+0+0
+
+wmname LG3D 2>/dev/null || true
+
+# Wallpaper: last choice saved by feh / theme-sync (.fehbg), else the bundled default
+# (cherry blossoms + mountains). Never a generated image with text.
+WALL_DEFAULT="$HOME/.config/bspwm/walls/cherry-field-mountains.jpg"
+if [ -f "$HOME/.fehbg" ]; then
+  sh "$HOME/.fehbg" &
+elif [ -f "$WALL_DEFAULT" ] && command -v feh >/dev/null 2>&1; then
+  feh --bg-fill "$WALL_DEFAULT" &
+fi
+
+# picom: rounded corners everywhere (also in VMs: xrender draws them since picom 9).
+#   picom 10/11 (Parrot 6)       → picom.conf / picom-vm.conf        (legacy rule syntax)
+#   picom >= 12 (Parrot 7, Kali) → picom-rules.conf / picom-rules-vm.conf ("rules:")
+#   VM → xrender profile; physical → glx, falling back to xrender if glx fails.
+start_picom() {
+  command -v picom >/dev/null 2>&1 || return 0
+  pgrep -u "$(id -u)" -x picom >/dev/null 2>&1 && return 0
+  # Another compositor already running (xfwm4/marco/compiz/kwin/compton): don't fight it
+  local c
+  for c in xfwm4 marco compiz kwin_x11 mutter compton; do
+    pgrep -u "$(id -u)" -x "$c" >/dev/null 2>&1 && return 0
+  done
+  local dir="$HOME/.config/picom" major prefix=picom
+  major=$(picom --version 2>/dev/null | sed -n 's/^v\{0,1\}\([0-9][0-9]*\).*/\1/p' | head -n1)
+  # unknown (git builds print "vgit-…") → assume recent
+  if [ -z "$major" ] || [ "$major" -ge 12 ]; then prefix=picom-rules; fi
+  local is_vm=0 virt
+  if command -v systemd-detect-virt >/dev/null 2>&1; then
+    virt=$(systemd-detect-virt --vm 2>/dev/null || true)
+    [ -n "$virt" ] && [ "$virt" != none ] && is_vm=1
+  fi
+  if [ "$is_vm" -eq 0 ] && [ -r /sys/class/dmi/id/product_name ] \
+     && grep -qiE 'VirtualBox|VMware|KVM|QEMU|Virtual Machine|Hyper-V|Xen|bochs' /sys/class/dmi/id/product_name 2>/dev/null; then
+    is_vm=1
+  fi
+  if [ "$is_vm" -eq 0 ] && picom --config "$dir/$prefix.conf" -b 2>/dev/null; then
+    return 0
+  fi
+  picom --config "$dir/$prefix-vm.conf" -b 2>/dev/null \
+    || picom --backend xrender -b 2>/dev/null \
+    || true
+}
+start_picom
+
+# Polkit agent (GUI password for pkexec / VPN menu / GParted…). Exactly one.
+# mate-polkit is what Install.sh installs (it has no XDG autostart, so MATE/KDE sessions
+# are unaffected); the others are accepted if already present.
+if ! pgrep -u "$(id -u)" -f 'polkit-[a-z]+-authentication-agent|lxpolkit|lxqt-policykit-agent' >/dev/null 2>&1; then
+  for agent in \
+    /usr/libexec/polkit-mate-authentication-agent-1 \
+    /usr/lib/mate-polkit/polkit-mate-authentication-agent-1 \
+    /usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1 \
+    /usr/libexec/polkit-kde-authentication-agent-1 \
+    /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 \
+    /usr/libexec/polkit-gnome-authentication-agent-1 \
+    /usr/bin/lxqt-policykit-agent \
+    /usr/bin/lxpolkit
+  do
+    if [ -x "$agent" ]; then
+      "$agent" >/dev/null 2>&1 &
+      break
+    fi
+  done
+fi
+
+start_once nm-applet nm-applet
+
+# Clipboard history daemon (Super+c). One backend only: greenclip, else CopyQ.
+# clipboard.sh holds the selection logic so bspwmrc and the menu never disagree.
+[ -x "$HOME/.config/bspwm/scripts/clipboard.sh" ] && "$HOME/.config/bspwm/scripts/clipboard.sh" --daemon
+
+[ -x "$HOME/.config/polybar/launch.sh" ] && "$HOME/.config/polybar/launch.sh" &
+
+command -v vmware-user >/dev/null 2>&1 && start_once vmware-user vmware-user
+if command -v VBoxClient-all >/dev/null 2>&1; then
+  pgrep -u "$(id -u)" -f VBoxClient >/dev/null 2>&1 || VBoxClient-all &
+fi
+
+# Scratchpad terminal (hidden); Super+u toggles it
+if command -v xdotool >/dev/null 2>&1 && ! xdotool search --class scratchterm >/dev/null 2>&1; then
+  if command -v kitty >/dev/null 2>&1 && command -v tmux >/dev/null 2>&1; then
+    kitty --class scratchterm -e tmux new -A -s scratch &
+  elif command -v kitty >/dev/null 2>&1; then
+    kitty --class scratchterm &
+  fi
+fi

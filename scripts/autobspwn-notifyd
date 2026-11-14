@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# AutoBSPWN v3.0.0 — D-Bus activation router for org.freedesktop.Notifications.
+# Installed as ~/.local/share/dbus-1/services/org.freedesktop.Notifications.service
+# (the user directory wins over /usr/share/dbus-1/services).
+# Why: dunst, mate-notification-daemon, xfce4-notifyd… all declare the same bus name
+# system-wide and D-Bus then picks one arbitrarily. Installing dunst could make the
+# *MATE* session show dunst popups. This keeps each desktop with its own daemon:
+#   bspwm running  → dunst with the AutoBSPWN config
+#   anything else  → the desktop's own daemon (MATE / XFCE / GNOME…), dunst as last resort
+uid=$(id -u)
+
+if pgrep -u "$uid" -x bspwm >/dev/null 2>&1; then
+  exec dunst -config "$HOME/.config/dunst/dunstrc"
+fi
+
+# Not in bspwm: delegate to a non-dunst system service for the name, preferring the
+# current desktop's (XDG_CURRENT_DESKTOP=MATE → org.freedesktop.mate.Notifications.service)
+desk=$(printf '%s' "${XDG_CURRENT_DESKTOP:-${DESKTOP_SESSION:-}}" | tr '[:upper:]' '[:lower:]' | cut -d: -f1)
+files=()
+for f in /usr/share/dbus-1/services/*.service /usr/local/share/dbus-1/services/*.service; do
+  [ -f "$f" ] || continue
+  if [ -n "$desk" ] && [[ "${f,,}" == *"$desk"* ]]; then files=("$f" "${files[@]}"); else files+=("$f"); fi
+done
+for f in "${files[@]}"; do
+  grep -qx 'Name=org.freedesktop.Notifications' "$f" 2>/dev/null || continue
+  exe=$(sed -n 's/^Exec=//p' "$f" | head -n1)
+  [ -n "$exe" ] || continue
+  case "$exe" in
+    *dunst*) continue ;;
+  esac
+  read -r -a argv <<<"$exe"
+  [ -x "${argv[0]}" ] && exec "${argv[@]}"
+done
+
+exec dunst
