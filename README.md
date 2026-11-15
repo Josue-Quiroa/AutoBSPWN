@@ -191,4 +191,6 @@ Inspirado en el trabajo de la comunidad; **todo el código y las configs están 
 
 Código bajo licencia **MIT** · hecho para la comunidad de Parrot y Kali 🦜
 
+<sub>🤖 Construido mano a mano con <b>BSPWN</b>, mi asistente, que echó la mano con la auditoría, scripts y pulido. ¡Gracias, máquina! 😎</sub>
+
 </div>
