@@ -1,0 +1,42 @@
+# AutoBSPWN CI: shellcheck on every shell script + the bats suite, on push and pull requests.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck (all *.sh + scripts with a sh/bash shebang)
+        run: |
+          set -euo pipefail
+          shellcheck --version
+          mapfile -t files < <(
+            { echo Install.sh; git ls-files '*.sh' 'scripts/*' 'config/bspwm/bspwmrc' 'home/*'; } \
+              | grep -v '^tests/vendor/' | sort -u \
+              | while read -r f; do
+                  [ -f "$f" ] || continue
+                  case "$f" in *.sh) echo "$f" ;; *) head -n1 "$f" | grep -qE '^#!.*\b(ba)?sh\b' && echo "$f" || true ;; esac
+                done)
+          printf '%s\n' "${files[@]}"
+          shellcheck -x -P SCRIPTDIR "${files[@]}"
+          shellcheck -x -P SCRIPTDIR tests/*.bats tests/test_helper.bash
+      - name: bash -n
+        run: |
+          set -euo pipefail
+          for f in Install.sh $(git ls-files '*.sh' 'scripts/*' | grep -v '^tests/vendor/'); do bash -n "$f"; done
+
+  bats:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: bats (vendored bats-core)
+        env:
+          TERM: xterm
+        run: ./tests/run.sh --print-output-on-failure
