@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — eww dashboard toggle (Super+F2 · Escape closes · right click on the power icon)
+# AutoBSPWN v3.3.0 — eww dashboard toggle (Super+F2 · Escape closes · right click on the power icon)
 #   dashboard.sh            toggle      --open | --close | --status
 # The eww daemon only lives while the dashboard is open (closing it kills the daemon).
 # Without eww (not installed on this distro / old glibc) it shows a notification instead.

@@ -1,4 +1,4 @@
-# AutoBSPWN zsh v3.2.0
+# AutoBSPWN zsh v3.3.0
 # Standalone: no oh-my-zsh required. Plugins come from distro packages; p10k is optional.
 export PATH="$HOME/.local/bin:$PATH"
 export _JAVA_AWT_WM_NONREPARENTING=1
@@ -81,6 +81,17 @@ _tgt() {
   compadd -a c
 }
 
+# loot: remember which program ran before (only its NAME, never the arguments: they may hold
+# passwords). `loot <etiqueta> archivo` records it as the tool that produced the loot.
+_ab_preexec_tool() {
+  export AB_LAST_TOOL=${_ab_cur_tool:-}
+  local -a w
+  w=(${(z)1})
+  _ab_cur_tool=${w[1]:t}
+  case $_ab_cur_tool in sudo|proxychains|proxychains4|time|nohup|doas) _ab_cur_tool=${w[2]:t} ;; esac
+}
+{ autoload -Uz add-zsh-hook && add-zsh-hook preexec _ab_preexec_tool; } 2>/dev/null || preexec_functions+=(_ab_preexec_tool)
+
 mkt() {
   local name="${1:?uso: mkt <nombre>}"
   mkdir -p "$HOME/Machines/$name"/{nmap,content,exploits,scripts,loot}
@@ -115,6 +126,9 @@ done
 
 [[ -r ~/powerlevel10k/powerlevel10k.zsh-theme ]] && source ~/powerlevel10k/powerlevel10k.zsh-theme
 [[ -r ~/.p10k.zsh ]] && source ~/.p10k.zsh
+
+# Your own aliases / exports: ~/.zshrc.local is never touched by Install.sh / autobspwn-update
+[[ -r ~/.zshrc.local ]] && source ~/.zshrc.local
 
 # Must be sourced last
 if [ -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then

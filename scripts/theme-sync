@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — theme-sync: one theme for polybar, bspwm, kitty, rofi, dunst, eww, lock & wallpaper
+# AutoBSPWN v3.3.0 — theme-sync: one theme for polybar, bspwm, kitty, rofi, dunst, eww, lock & wallpaper
 #   theme-sync <tema>        aplicar (amethyst | mocha | macchiato | frappe | tokyonight | nord |
 #                            gruvbox | dracula | rosepine | hacker | los tuyos)
 #   theme-sync --next|--prev ciclar (Super+Shift+t)

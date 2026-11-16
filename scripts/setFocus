@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — setFocus <ip> [nombre]
+# AutoBSPWN v3.3.0 — setFocus <ip> [nombre]
 F=$HOME/.config/bspwm/focus_ip
 N=$HOME/.config/bspwm/focus_name
 mkdir -p "$(dirname "$F")"

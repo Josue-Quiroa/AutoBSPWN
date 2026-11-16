@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — keyboard resize (Super+Alt+arrows / Super+Alt+hjkl).
+# AutoBSPWN v3.3.0 — keyboard resize (Super+Alt+arrows / Super+Alt+hjkl).
 #   Floating window : Left/Right = narrower/wider, Up/Down = shorter/taller
 #                     (anchored on the top-left corner, so it never "only grows").
 #   Tiled window    : smart resize — push the split towards the arrow; if the window

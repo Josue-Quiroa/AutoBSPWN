@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — calendar popup under the polybar clock (click again to close).
+# AutoBSPWN v3.3.0 — calendar popup under the polybar clock (click again to close).
 # yad --calendar (Parrot 6/7, Kali) → gsimplecal → floating terminal with `cal -3`.
 # Idea from yoodreamer/AutoBSPWM (clock click → calendar); own implementation.
 # shellcheck source=/dev/null

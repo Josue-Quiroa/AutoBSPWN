@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0
+# AutoBSPWN v3.3.0
 # Launch polybar on every monitor. Tray only on the first bar.
 # Kali (polybar 3.7+) uses internal/tray; Parrot/Debian 12 (3.6) uses tray-position.
 

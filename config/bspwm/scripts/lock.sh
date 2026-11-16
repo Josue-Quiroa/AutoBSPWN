@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — lock screen (Super+Shift+x / Ctrl+Alt+l / power menu)
+# AutoBSPWN v3.3.0 — lock screen (Super+Shift+x / Ctrl+Alt+l / power menu)
 #   Plain Debian i3lock (repo package, nothing compiled) showing a pre-rendered image:
 #   the current wallpaper, smoothly blurred (no pixelation) and darkened, with
 #   user@host and a hint in the theme colors. The image is cached in

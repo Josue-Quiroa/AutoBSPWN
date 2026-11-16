@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN bspwmrc v3.2.0 (gaps / thin borders / docked bar inspired by r1vs3c/auto-bspwm)
+# AutoBSPWN bspwmrc v3.3.0 (gaps / thin borders / docked bar inspired by r1vs3c/auto-bspwm)
 export PATH="$HOME/.local/bin:$PATH"
 export _JAVA_AWT_WM_NONREPARENTING=1
 

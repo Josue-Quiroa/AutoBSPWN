@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 - BSPWM desktop installer
+# AutoBSPWN v3.3.0 - BSPWM desktop installer
 # Target: Parrot OS Home Edition (Parrot 6 "lory" / Debian 12 MATE and Parrot 7 "echo" /
 #         Debian 13 KDE). Also Parrot Security and Kali Linux.
+# v3.3.0: --update / autobspwn-update (config-only sync, keeps your edited files), scope guard
+#       (scope.conf, scope-check, nmap/ffuf wrappers, red target in the bar), tscan recon
+#       pipeline, loot ledger + per-target timeline, bats tests + GitHub Actions CI.
 # v3.2.0: saved targets (targets.tsv, Super+Alt+i, `tgt <nombre>`, targetFav), user quick
 #       commands in the Target HUD (target-commands.conf), 6 new themes (Tokyo Night, Nord,
 #       Gruvbox, Dracula, Rosé Pine, Catppuccin Frappé) with matching wallpapers.
@@ -34,11 +37,12 @@ cd "$SCRIPT_DIR"
 
 : "${USER:=$(id -un)}"
 export USER
-VERSION="3.2.0"
+VERSION="3.3.0"
 NICKNAME="${NICKNAME:-}"   # v3: ignored (wallpapers no longer carry text); kept so old commands still work
 SKIP_UPGRADE=0
 SKIP_FONTS=0
 DISABLE_BACKPORTS=0
+UPDATE_ONLY=0
 YES=0
 TOOLS_MODE="${AUTOBSPWN_TOOLS:-}"   # none|basic|pentest|full|custom:a,b ; empty = ask
 TOOLS_PKGS=()
@@ -71,6 +75,9 @@ Opciones:
   --skip-upgrade         No hacer apt full-upgrade / parrot-upgrade
   --skip-fonts           No descargar Nerd Fonts
   --disable-backports    Comentar los repos *-backports de Parrot (antes era automático)
+  --update               Sólo sincronizar configs, scripts, temas, wallpapers y ATAJOS
+                         (sin apt, sin upgrade, sin fuentes, sin tools; con backup). Es lo
+                         que ejecuta autobspwn-update tras el git pull. No pisa tus ediciones.
   --version              Mostrar versión
 
 Ejemplos:
@@ -78,6 +85,7 @@ Ejemplos:
   ./Install.sh -y                              # sin preguntas, sin tools
   ./Install.sh -y --tools basic --skip-upgrade
   ./Install.sh --tools custom:web,password,wireless
+  ./Install.sh --update                        # actualizar sólo los dotfiles (o: autobspwn-update)
 USAGE
 }
 
@@ -104,6 +112,7 @@ parse_args() {
       --skip-upgrade) SKIP_UPGRADE=1; shift ;;
       --skip-fonts) SKIP_FONTS=1; shift ;;
       --disable-backports) DISABLE_BACKPORTS=1; shift ;;
+      --update) UPDATE_ONLY=1; shift ;;
       *) err "Opción desconocida: $1"; usage; exit 1 ;;
     esac
   done
@@ -112,6 +121,13 @@ parse_args() {
       none|basic|pentest|full|custom:?*) ;;
       *) err "--tools inválido: '$TOOLS_MODE' (none|basic|pentest|full|custom:a,b)"; exit 1 ;;
     esac
+  fi
+  if [ "$UPDATE_ONLY" -eq 1 ]; then
+    # config-only: same as --skip-upgrade --skip-fonts --tools none, and no apt at all
+    if [ -n "$TOOLS_MODE" ] && [ "$TOOLS_MODE" != none ]; then
+      warn "--update no instala tools: se ignora --tools $TOOLS_MODE"
+    fi
+    TOOLS_MODE=none; SKIP_UPGRADE=1; SKIP_FONTS=1
   fi
   if [ "$list_only" -eq 1 ]; then
     detect_os quiet
@@ -474,10 +490,17 @@ backup_existing() {
     [ -d "$HOME/.config/$d" ] && cp -a "$HOME/.config/$d" "$BACKUP_DIR/" || true
   done
   for f in .zshrc .p10k.zsh .config/greenclip.toml .fehbg .config/gtk-3.0/settings.ini \
-           .local/share/dbus-1/services/org.freedesktop.Notifications.service .config/autostart/picom.desktop; do
+           .local/share/dbus-1/services/org.freedesktop.Notifications.service .config/autostart/picom.desktop \
+           .config/autobspwn/manifest.tsv; do
     if [ -f "$HOME/$f" ]; then
       mkdir -p "$BACKUP_DIR/$(dirname "$f")"
       cp -a "$HOME/$f" "$BACKUP_DIR/$f"
+    fi
+  done
+  for f in $AB_BIN_SCRIPTS nmap ffuf; do
+    if [ -f "$HOME/.local/bin/$f" ]; then
+      mkdir -p "$BACKUP_DIR/local-bin"
+      cp -a "$HOME/.local/bin/$f" "$BACKUP_DIR/local-bin/" || true
     fi
   done
   ok "Backup listo"
@@ -862,24 +885,124 @@ ensure_path_file() {
   fi
 }
 
+# ---------------------------------------------------------------- deploy (manifest)
+# ~/.config/autobspwn/manifest.tsv remembers the checksum of every file AutoBSPWN installed.
+# On a reinstall / --update a file is replaced only if you did not edit it since; an edited
+# file is kept and the new version is written next to it as <file>.autobspwn-new.
+# Files theme-sync regenerates are always replaced (the theme is re-applied right after), and
+# the theme-sync block inside dunstrc is ignored when comparing.
+AB_BIN_SCRIPTS="setFocus clearFocus targetFav polybar-theme extractHosts theme-sync autobspwn-notifyd scope-check tscan loot autobspwn-update"
+AB_MANIFEST="$HOME/.config/autobspwn/manifest.tsv"
+AB_THEME_OWNED=" .config/polybar/colors.ini .config/kitty/theme.conf .config/rofi/colors.rasi .config/eww/colors.scss "
+declare -gA AB_MAN_OLD=() AB_MAN_NEW=()
+KEPT_FILES=()
+
+file_sum() {
+  awk '/^# >>> autobspwn-theme/ {s=1; next} /^# <<< autobspwn-theme/ {s=0; next} !s' "$1" 2>/dev/null \
+    | sha256sum | awk '{print $1}'
+}
+
+manifest_load() {
+  AB_MAN_OLD=(); AB_MAN_NEW=(); KEPT_FILES=()
+  [ -f "$AB_MANIFEST" ] || return 0
+  local rel sum
+  while IFS=$'\t' read -r rel sum; do
+    [ -n "$rel" ] && [ -n "$sum" ] && AB_MAN_OLD[$rel]=$sum
+  done <"$AB_MANIFEST"
+  return 0
+}
+
+manifest_save() {
+  local k
+  mkdir -p "$(dirname "$AB_MANIFEST")"
+  for k in "${!AB_MAN_NEW[@]}"; do printf '%s\t%s\n' "$k" "${AB_MAN_NEW[$k]}"; done | sort >"$AB_MANIFEST.tmp" \
+    && mv -f "$AB_MANIFEST.tmp" "$AB_MANIFEST"
+  return 0
+}
+
+# deploy_file <src> <dst> [mode]
+deploy_file() {
+  local src=$1 dst=$2 mode=${3:-} rel new cur old
+  rel=${dst#"$HOME"/}
+  new=$(file_sum "$src")
+  if [ -f "$dst" ]; then
+    cur=$(file_sum "$dst")
+    if [ "$cur" = "$new" ]; then
+      [ -n "$mode" ] && chmod "$mode" "$dst" 2>/dev/null
+      rm -f "$dst.autobspwn-new"
+      AB_MAN_NEW[$rel]=$new
+      return 0
+    fi
+    old=${AB_MAN_OLD[$rel]:-}
+    # edited by you since the last install (and not a theme-sync file) → keep it
+    if [ -n "$old" ] && [ "$cur" != "$old" ] && [[ $AB_THEME_OWNED != *" $rel "* ]]; then
+      cp -f "$src" "$dst.autobspwn-new" 2>/dev/null || true
+      KEPT_FILES+=("$rel")
+      AB_MAN_NEW[$rel]=$old
+      return 0
+    fi
+  fi
+  mkdir -p "$(dirname "$dst")"
+  if [ -n "$mode" ]; then
+    install -m "$mode" "$src" "$dst"
+  else
+    cp -a "$src" "$dst"
+  fi
+  rm -f "$dst.autobspwn-new"
+  AB_MAN_NEW[$rel]=$new
+  return 0
+}
+
+# deploy_tree <src dir> <dst dir>
+deploy_tree() {
+  local src=$1 dst=$2 f
+  while IFS= read -r -d '' f; do
+    deploy_file "$f" "$dst/${f#"$src"/}"
+  done < <(find "$src" -type f -print0)
+}
+
+# nmap / ffuf scope guards in ~/.local/bin (opt out: touch ~/.config/autobspwn/no-scope-wrappers)
+install_scope_wrappers() {
+  local w dst src="$SCRIPT_DIR/scripts/autobspwn-scope-wrapper"
+  [ -f "$src" ] || return 0
+  for w in nmap ffuf; do
+    dst="$HOME/.local/bin/$w"
+    if [ -f "$HOME/.config/autobspwn/no-scope-wrappers" ]; then
+      if grep -q 'AUTOBSPWN-SCOPE-WRAPPER' "$dst" 2>/dev/null; then rm -f "$dst"; fi
+      continue
+    fi
+    if [ -e "$dst" ] && ! grep -q 'AUTOBSPWN-SCOPE-WRAPPER' "$dst" 2>/dev/null; then
+      warn "$HOME/.local/bin/$w ya existe y no es de AutoBSPWN: sin guardia de scope para $w"
+      continue
+    fi
+    deploy_file "$src" "$dst" 0755
+  done
+  return 0
+}
+
 deploy_configs() {
   info "Desplegando configs..."
   mkdir -p "$HOME/.config" "$HOME/.local/bin" "$HOME/.config/bspwm/walls" "$HOME/Pictures"
+  manifest_load
 
   local d
   for d in bspwm sxhkd polybar picom kitty rofi dunst eww; do
     [ -d "$SCRIPT_DIR/config/$d" ] || continue
     mkdir -p "$HOME/.config/$d"
-    cp -a "$SCRIPT_DIR/config/$d/." "$HOME/.config/$d/"
+    deploy_tree "$SCRIPT_DIR/config/$d" "$HOME/.config/$d"
   done
 
-  cp -a "$SCRIPT_DIR/home/.zshrc" "$HOME/.zshrc"
-  cp -a "$SCRIPT_DIR/home/.p10k.zsh" "$HOME/.p10k.zsh"
+  deploy_file "$SCRIPT_DIR/home/.zshrc" "$HOME/.zshrc"
+  deploy_file "$SCRIPT_DIR/home/.p10k.zsh" "$HOME/.p10k.zsh"
 
   local s
-  for s in setFocus clearFocus targetFav polybar-theme extractHosts theme-sync autobspwn-notifyd; do
-    [ -f "$SCRIPT_DIR/scripts/$s" ] && install -m 0755 "$SCRIPT_DIR/scripts/$s" "$HOME/.local/bin/$s"
+  for s in $AB_BIN_SCRIPTS; do
+    [ -f "$SCRIPT_DIR/scripts/$s" ] && deploy_file "$SCRIPT_DIR/scripts/$s" "$HOME/.local/bin/$s" 0755
   done
+  install_scope_wrappers
+  # autobspwn-update finds the clone through this file
+  mkdir -p "$HOME/.config/autobspwn"
+  printf '%s\n' "$SCRIPT_DIR" >"$HOME/.config/autobspwn/repo"
 
   # First install only (keeps the user's own settings)
   if [ ! -f "$HOME/.config/greenclip.toml" ] && [ -f "$SCRIPT_DIR/config/greenclip/greenclip.toml" ]; then
@@ -921,6 +1044,13 @@ deploy_configs() {
   ensure_path_file "$HOME/.xprofile"
   ensure_path_file "$HOME/.zprofile"
 
+  manifest_save
+  if [ ${#KEPT_FILES[@]} -gt 0 ]; then
+    local k
+    for k in "${KEPT_FILES[@]}"; do
+      warn "Conservado tu ~/$k (lo editaste); la versión nueva está en ~/$k.autobspwn-new"
+    done
+  fi
   ok "Configs desplegadas"
 }
 
@@ -1089,8 +1219,70 @@ verify_install() {
   [ "$missing" -eq 0 ] && ok "Verificación OK" || warn "Hay binarios faltantes; revisa el log"
 }
 
+# ---------------------------------------------------------------- --update (config-only)
+# eww: only (re)install the bundled binary when there is no working eww (never replace a
+# cargo build); no apt for its libraries here.
+update_eww_binary() {
+  eww_ok && return 0
+  local bin="$SCRIPT_DIR/bin/eww-x86_64" sum="$SCRIPT_DIR/bin/eww-x86_64.sha256" want
+  [ "$(uname -m)" = x86_64 ] && [ -f "$bin" ] && [ -f "$sum" ] || return 0
+  want=$(awk '{print $1; exit}' "$sum")
+  [ "$(sha256sum "$bin" | awk '{print $1}')" = "$want" ] || { warn "eww: checksum del binario incluido no coincide"; return 0; }
+  install -m 0755 "$bin" "$HOME/.local/bin/eww" || true
+  if eww_ok; then ok "eww instalado (dashboard Super+F2)"; else rm -f "$HOME/.local/bin/eww"; warn "eww no arranca aquí (falta GTK); usa ./Install.sh completo"; fi
+  return 0
+}
+
+# Reload whatever is running in this X session (nothing to do from a TTY / SSH)
+reload_session() {
+  local uid
+  uid=$(id -u)
+  if [ "${AUTOBSPWN_NO_RELOAD:-0}" = 1 ] || [ -z "${DISPLAY:-}" ]; then
+    info "Sin sesión gráfica: los cambios se aplican al entrar en bspwm"
+    return 0
+  fi
+  if pgrep -u "$uid" -x bspwm >/dev/null 2>&1 && command -v bspc >/dev/null 2>&1; then
+    # bspwmrc runs again: borders, rules, picom profile and polybar (launch.sh)
+    if bspc wm -r >/dev/null 2>&1; then ok "bspwm recargado (relanza polybar)"; else warn "bspc wm -r falló"; fi
+  elif pgrep -u "$uid" -x polybar >/dev/null 2>&1 && [ -x "$HOME/.config/polybar/launch.sh" ]; then
+    setsid -f "$HOME/.config/polybar/launch.sh" >/dev/null 2>&1 </dev/null || true
+    ok "polybar relanzada"
+  fi
+  if pgrep -u "$uid" -x sxhkd >/dev/null 2>&1; then
+    pkill -USR1 -u "$uid" -x sxhkd 2>/dev/null && ok "sxhkd recargado (atajos nuevos activos)" || true
+  fi
+  return 0
+}
+
+update_main() {
+  echo -e "${CYAN}AutoBSPWN $VERSION${NC} — actualización de configs (sin apt, sin upgrade, sin fuentes, sin tools)"
+  need_not_root
+  backup_existing
+  deploy_configs
+  update_eww_binary
+  setup_picom_profile
+  desktop_coexistence
+  migrate_v2
+  apply_theme
+  prepare_lockscreen
+  reload_session
+  echo
+  ok "AutoBSPWN $VERSION sincronizado"
+  info "Backup: $BACKUP_DIR"
+  info "Log:    $LOG_FILE"
+  if [ ${#WARNINGS[@]} -gt 0 ]; then
+    echo -e "${YELLOW}Avisos (${#WARNINGS[@]}):${NC}"
+    printf '  - %s\n' "${WARNINGS[@]}"
+  fi
+  return 0
+}
+
 main() {
   parse_args "$@"
+  if [ "$UPDATE_ONLY" -eq 1 ]; then
+    update_main
+    return 0
+  fi
   echo -e "${CYAN}"
   cat <<'BANNER'
     _         _        ____  ____  ______        ___   __
@@ -1139,13 +1331,13 @@ BANNER
   echo "  2. En el login (LightDM/SDDM), elige la sesión: bspwm"
   echo "  3. Super+F1 (o Super+/) muestra TODOS los atajos · también en ~/ATAJOS.md"
   echo "  4. Super+Enter (kitty) · Super+d (rofi) · Super+w (wallpapers) · Super+e (archivos)"
-  echo "  5. Target HUD: Super+i (menú) · setFocus 10.10.10.10 box · clearFocus"
+  echo "  5. Target HUD: Super+i (menú) · setFocus 10.10.10.10 box · tscan fast · loot · scope-check"
   echo "  6. VPN: copia tus .ovpn a ~/vpn → Super+v (Super+Shift+v reconecta)"
   echo "  7. Portapapeles: Super+c · Tools: Super+p · Capturas: Print / Super+a"
   echo "  8. Temas: Super+Shift+t (ciclar) · Super+Alt+t (menú) · theme-sync mocha"
   echo "  9. Calendario: clic en el reloj (o Super+Alt+c) · Scratchpad: Super+u"
   echo " 10. Ventanas: Super+s flotante↔mosaico · Super+Shift+s escritorio flotante · Super+Alt+flechas redimensionar"
-  echo " 11. Dashboard: Super+F2 (Esc cierra) · Bloquear: Super+Shift+x"
+  echo " 11. Dashboard: Super+F2 (Esc cierra) · Bloquear: Super+Shift+x · Actualizar: autobspwn-update"
   [ "$TOOLS_MODE" = none ] && echo " 12. Tools de Parrot Security cuando quieras: ./Install.sh -y --skip-upgrade --tools basic"
   echo
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — VPN status for polybar
+# AutoBSPWN v3.3.0 — VPN status for polybar
 #   (no args)  label: icon + profile/connection name + tun IP (+N if several)
 #   --ifaces   "iface<TAB>ipv4" for every VPN interface that is UP (used by vpn-menu.sh)
 #   --copy     copy the first VPN IP      --menu   open vpn-menu.sh

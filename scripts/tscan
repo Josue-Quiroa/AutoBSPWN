@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+# AutoBSPWN v3.3.0 — tscan: recon pipeline for the Target HUD.
+#   tscan [--force] [--no-sudo] {fast|full|udp|ad} [ip]      (ip = active target by default)
+#     fast  top 1000 TCP, SYN + versions (light)       full  all 65535 TCP, then -sC -sV on the open ones
+#     udp   top 100 UDP (needs root)                   ad    typical AD ports + AD/SMB/LDAP scripts
+# Results: ~/targets/<ip>/nmap/<perfil>-<fecha>.{nmap,gnmap,xml}
+# Keeps ~/targets/<ip>/ports.txt (TCP, comma list → {ports} in quick commands), ports-udp.txt and
+# nmap/ports.tsv (port, proto, service, first seen, profile); notifies the NEW open ports.
+# Checks scope.conf first (scope-check): out of scope → blocked unless --force.
+# SYN/UDP need root: uses sudo when available (asks in the terminal), else TCP connect (-sT).
+set -Eeuo pipefail
+lib() {
+  local c
+  for c in "${AB_LIB:-}" "$HOME/.config/bspwm/scripts/lib.sh" \
+           "$(dirname "$(readlink -f "$0")")/../config/bspwm/scripts/lib.sh"; do
+    [ -n "$c" ] && [ -r "$c" ] && { printf '%s\n' "$c"; return 0; }
+  done
+  return 1
+}
+LIB=$(lib) || { echo "tscan: falta lib.sh (reinstala AutoBSPWN)" >&2; exit 1; }
+# shellcheck source=/dev/null
+. "$LIB"
+
+usage() { sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; }
+force=0; nosudo=0; profile=''; ip=''
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --force) force=1 ;;
+    --no-sudo) nosudo=1 ;;
+    -h|--help) usage; exit 0 ;;
+    fast|full|udp|ad) profile=$1 ;;
+    -*) echo "tscan: opción desconocida $1" >&2; usage >&2; exit 2 ;;
+    *) ip=$1 ;;
+  esac
+  shift
+done
+[ -n "$profile" ] || { usage >&2; exit 2; }
+[ -n "$ip" ] || ip=$(ab_focus_ip || true)
+[ -n "$ip" ] || { echo "tscan: no hay target activo (setFocus <ip> o tscan $profile <ip>)" >&2; exit 2; }
+ab_is_ipv4 "$ip" || { echo "tscan: IP inválida: $ip" >&2; exit 2; }
+
+NMAP=$(ab_real_bin nmap) || { echo "tscan: nmap no está instalado (sudo apt install nmap)" >&2; exit 1; }
+if ! ab_scope_guard "$force" "tscan $profile" "$ip"; then
+  echo "    (tscan --force $profile $ip para lanzarlo igualmente)" >&2
+  exit 1
+fi
+export AB_SCOPE_CHECKED=1
+
+dir=$(ab_target_dir "$ip")
+out="$dir/nmap"
+ts=$(date +%Y%m%d-%H%M%S)
+base="$out/$profile-$ts"
+n=2
+while [ -e "$base.gnmap" ] || [ -e "$base.nmap" ]; do base="$out/$profile-$ts-$n"; n=$((n + 1)); done
+
+# root for -sS / -sU
+SUDO=()
+root=0
+if [ "$(id -u)" -eq 0 ]; then root=1
+elif [ "$nosudo" -eq 0 ] && ab_has sudo; then SUDO=(sudo); root=1
+fi
+tcp=-sS
+[ "$root" -eq 1 ] || tcp=-sT
+if [ "$profile" = udp ] && [ "$root" -eq 0 ]; then
+  echo "tscan: el escaneo UDP necesita root (sudo)" >&2; exit 1
+fi
+
+run_nmap() {   # run_nmap <out-base> args...
+  local b=$1 rc=0
+  shift
+  echo "[*] nmap $* → $b.*"
+  "${SUDO[@]}" "$NMAP" "$@" -oA "$b" "$ip" || rc=$?
+  # files written by sudo nmap belong to root: give them back
+  if [ ${#SUDO[@]} -gt 0 ]; then
+    sudo chown "$(id -u):$(id -g)" "$b".* 2>/dev/null || true
+  fi
+  return "$rc"
+}
+
+# open ports from a .gnmap → "port/proto<TAB>service" lines
+open_ports() {
+  [ -f "$1" ] || return 0
+  awk -F'Ports: ' 'NF > 1 {
+      n = split($2, a, ", ")
+      for (i = 1; i <= n; i++) {
+        split(a[i], f, "/")
+        if (f[2] == "open") print f[1] "/" f[3] "\t" (f[5] == "" ? "?" : f[5])
+      }
+    }' "$1" | sort -u -t/ -k1,1n -k2
+}
+
+ab_timeline "$ip" "tscan $profile" "inicio ($tcp${SUDO[*]:+, sudo})"
+case "$profile" in
+  fast)
+    run_nmap "$base" "$tcp" -sV --version-light --top-ports 1000 -T4 --min-rate 1000 -Pn -n --open ;;
+  full)
+    run_nmap "$base" "$tcp" -p- -T4 --min-rate 3000 -Pn -n --open
+    p=$(open_ports "$base.gnmap" | cut -d/ -f1 | paste -sd, -)
+    if [ -n "$p" ]; then
+      echo
+      run_nmap "$base-svc" "$tcp" -sC -sV -p "$p" -Pn -n
+    fi ;;
+  udp)
+    run_nmap "$base" -sU --top-ports 100 -T4 --max-retries 2 -Pn -n --open ;;
+  ad)
+    run_nmap "$base" "$tcp" -sV -Pn -n -p 53,88,135,139,389,445,464,593,636,3268,3269,3389,5985,5986,9389,47001 \
+      --script 'default,ldap-rootdse,smb-os-discovery,smb2-security-mode,smb2-time,rdp-ntlm-info' ;;
+esac
+
+# ---- merge: known ports (ports.tsv + ports.txt) vs this scan ----
+tsv="$out/ports.tsv"
+[ -s "$tsv" ] || printf '# puerto/proto\tservicio\tvisto_por_1a_vez\tperfil\n' >"$tsv"
+known=$(mktemp); found=$(mktemp)
+trap 'rm -f "$known" "$found"' EXIT
+{
+  awk -F'\t' '!/^#/ && NF {print $1}' "$tsv"
+  [ -s "$dir/ports.txt" ] && tr ',' '\n' <"$dir/ports.txt" | grep -E '^[0-9]+$' | sed 's#$#/tcp#'
+  [ -s "$dir/ports-udp.txt" ] && tr ',' '\n' <"$dir/ports-udp.txt" | grep -E '^[0-9]+$' | sed 's#$#/udp#'
+} 2>/dev/null | sort -u >"$known" || true
+{
+  open_ports "$base.gnmap"
+  if [ -f "$base-svc.gnmap" ]; then open_ports "$base-svc.gnmap"; fi
+} | awk -F'\t' '{ if (!($1 in s) || s[$1] == "?") s[$1] = $2 } END { for (k in s) print k "\t" s[k] }' \
+  | sort -t/ -k1,1n >"$found"
+
+total=$(wc -l <"$found" | tr -d ' ')
+new=()
+now=$(date '+%Y-%m-%dT%H:%M:%S%z')
+while IFS=$'\t' read -r pp svc; do
+  [ -n "$pp" ] || continue
+  if ! grep -qxF "$pp" "$known"; then
+    new+=("$pp${svc:+ ($svc)}")
+    printf '%s\t%s\t%s\t%s\n' "$pp" "$svc" "$now" "$profile" >>"$tsv"
+  fi
+done <"$found"
+
+# ports.txt = union of every TCP port ever seen open (same format as before: 22,80,445)
+union() {   # union <file> <proto>
+  { [ -s "$1" ] && tr ',' '\n' <"$1"; awk -F'\t' -v p="$2" '!/^#/ && $1 ~ "/" p "$" {split($1, a, "/"); print a[1]}' "$tsv"; } \
+    | grep -E '^[0-9]+$' | sort -un | paste -sd, -
+}
+tcp_all=$(union "$dir/ports.txt" tcp || true)
+udp_all=$(union "$dir/ports-udp.txt" udp || true)
+[ -n "$tcp_all" ] && printf '%s\n' "$tcp_all" >"$dir/ports.txt"
+[ -n "$udp_all" ] && printf '%s\n' "$udp_all" >"$dir/ports-udp.txt"
+
+echo
+if [ "$total" -eq 0 ]; then
+  msg="$profile: sin puertos abiertos (¿host caído o filtrado?)"
+elif [ ${#new[@]} -eq 0 ]; then
+  msg="$profile: $total abiertos, ninguno nuevo"
+else
+  msg="$profile: $total abiertos · NUEVOS: $(printf '%s, ' "${new[@]}" | sed 's/, $//')"
+fi
+echo "[+] $ip — $msg"
+[ -n "$tcp_all" ] && echo "    ports.txt: $tcp_all"
+ab_notify "$msg" "tscan $ip"
+ab_timeline "$ip" "tscan $profile" "fin: $total abiertos, ${#new[@]} nuevos"

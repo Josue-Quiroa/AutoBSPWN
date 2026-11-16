@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — data + actions for the eww dashboard (~/.config/eww/eww.yuck)
+# AutoBSPWN v3.3.0 — data + actions for the eww dashboard (~/.config/eww/eww.yuck)
 S="$HOME/.config/bspwm/scripts"
 P="$HOME/.config/polybar/scripts"
 close() { "$S/dashboard.sh" --close >/dev/null 2>&1; }

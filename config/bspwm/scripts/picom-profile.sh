@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — choose the picom profile for this machine (used by bspwmrc and Install.sh).
+# AutoBSPWN v3.3.0 — choose the picom profile for this machine (used by bspwmrc and Install.sh).
 #   picom-profile.sh             candidate configs, best first (one path per line)
 #   picom-profile.sh --explain   one-line summary (version · VM · profile)
 #

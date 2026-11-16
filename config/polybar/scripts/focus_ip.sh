@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — Target HUD for polybar (reads what setFocus writes).
+# AutoBSPWN v3.3.0 — Target HUD for polybar (reads what setFocus writes).
+# v3.3: the whole section turns red when the target is OUT of its scope.conf (scope-check).
 #   (no args)  print the HUD label
 #   --copy     copy focus IP      --clear   run clearFocus
 # Interactive actions live in ~/.config/bspwm/scripts/target-menu.sh
@@ -49,6 +50,23 @@ PORTS=
 if [ "${AUTOBSPWN_BAR_PORTS:-0}" = 1 ] && [ -s "$T/$IP/ports.txt" ]; then
   PORTS=$(head -c 200 "$T/$IP/ports.txt" | tr -d '[:space:]')
   [ ${#PORTS} -gt 22 ] && PORTS="${PORTS:0:21}…"
+fi
+# Scope guard (pure bash, offline): out of scope → everything in the alert color
+scope_out=0
+L=${AB_LIB:-$HOME/.config/bspwm/scripts/lib.sh}
+if [ -r "$L" ]; then
+  # shellcheck source=/dev/null
+  if . "$L" 2>/dev/null && declare -F ab_scope_check >/dev/null; then
+    rc=0
+    ab_scope_check "$IP" >/dev/null 2>&1 || rc=$?
+    [ "$rc" -eq 1 ] && scope_out=1
+  fi
+fi
+if [ "$scope_out" = 1 ]; then
+  out="%{F$alert}󰀦${NAME:+ $NAME} $IP"
+  [ "${AB_BAR_COMPACT:-0}" = 1 ] || out="$out · fuera de scope"
+  echo "$out%{F-}"
+  exit 0
 fi
 out="%{F$alert}󰓾%{F-}"
 [ -n "$NAME" ] && out="$out %{F$fg}$NAME%{F-}"

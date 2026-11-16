@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# AutoBSPWN v3.3.0 — loot ledger for the active target.
+#   loot <etiqueta> <archivo>        move the file to ~/targets/<ip>/loot/, copy its new path
+#   cmd | loot <etiqueta>            save stdin as loot/<etiqueta>.txt and copy it to the clipboard
+#   loot -t TOOL ...                 say which tool produced it   ·   loot -i IP ...  other target
+#   loot --list                      show loot/index.tsv
+# Ledger: ~/targets/<ip>/loot/index.tsv → hora, etiqueta, herramienta, origen, sha256, archivo.
+# Only the tool NAME is recorded (never its arguments, which may hold passwords) and never the
+# loot itself. Tool: -t → the other commands of the pipe (cmd | loot x) → $AB_LAST_TOOL (zsh
+# hook, previous command) → $BASH_COMMAND-style $AB_TOOL → "manual". Files are 0600, dirs 0700.
+set -Eeuo pipefail
+lib() {
+  local c
+  for c in "${AB_LIB:-}" "$HOME/.config/bspwm/scripts/lib.sh" \
+           "$(dirname "$(readlink -f "$0")")/../config/bspwm/scripts/lib.sh"; do
+    [ -n "$c" ] && [ -r "$c" ] && { printf '%s\n' "$c"; return 0; }
+  done
+  return 1
+}
+LIB=$(lib) || { echo "loot: falta lib.sh (reinstala AutoBSPWN)" >&2; exit 1; }
+# shellcheck source=/dev/null
+. "$LIB"
+
+usage() { sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; }
+tool=''; ip=''; list=0; args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -t|--tool) tool=${2:-}; shift ;;
+    -i|--ip) ip=${2:-}; shift ;;
+    -l|--list) list=1 ;;
+    -h|--help) usage; exit 0 ;;
+    --) shift; args+=("$@"); break ;;
+    *) args+=("$1") ;;
+  esac
+  shift
+done
+[ -n "$ip" ] || ip=$(ab_focus_ip || true)
+[ -n "$ip" ] || { echo "loot: no hay target activo (setFocus <ip>) — o usa loot -i <ip>" >&2; exit 2; }
+ab_is_ipv4 "$ip" || { echo "loot: IP inválida: $ip" >&2; exit 2; }
+dir=$(ab_target_dir "$ip")
+L="$dir/loot"
+idx="$L/index.tsv"
+umask 077
+
+if [ "$list" = 1 ]; then
+  [ -s "$idx" ] && column -t -s $'\t' "$idx" 2>/dev/null || cat "$idx" 2>/dev/null || echo "(sin loot en $L)"
+  exit 0
+fi
+
+label=${args[0]:-}
+src=${args[1]:-}
+[ -n "$label" ] || { usage >&2; exit 2; }
+# label → safe file name part
+slug=$(printf '%s' "$label" | tr -c 'A-Za-z0-9._-' '_' | sed 's/^[._]*//' | cut -c1-60)
+[ -n "$slug" ] || slug=loot
+
+clean() { local v=${1//[$'\t\r\n']/ }; printf '%s' "${v:0:120}"; }
+basename_only() { local w=${1%% *}; w=${w##*/}; printf '%s' "$w"; }
+# program name from a process command line, looking through interpreters (python3 x.py → x.py)
+prog_name() {
+  local -a w
+  local i=0 b
+  read -r -a w <<<"$1"
+  while [ "$i" -lt ${#w[@]} ]; do
+    b=${w[$i]##*/}
+    case "$b" in
+      env|sh|bash|dash|zsh|python|python2|python3|python3.*|perl|ruby|node|-*) i=$((i + 1)) ;;
+      *) printf '%s' "$b"; return ;;
+    esac
+  done
+  [ ${#w[@]} -gt 0 ] && printf '%s' "${w[0]##*/}"
+}
+
+# Which tool produced it? only the program name is kept.
+guess_tool() {
+  [ -n "$tool" ] && { basename_only "$tool"; return; }
+  # siblings in our pipeline: same process group, same parent shell (secretsdump ... | loot hashes)
+  local pg pid cmd
+  pg=$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ' || true)
+  if [ -n "$pg" ] && [ "$pg" != "$(ps -o pgid= -p "$PPID" 2>/dev/null | tr -d ' ' || true)" ]; then
+    while read -r pid cmd; do
+      [ "$pid" = $$ ] && continue
+      cmd=$(prog_name "$cmd")
+      case "$cmd" in loot|bash|zsh|sh|ps|tr|sed|cut|cat|tee|head|tail|grep|awk|column|"") continue ;; esac
+      printf '%s' "$cmd"; return
+    done < <(ps -eo pid=,ppid=,pgid=,args= 2>/dev/null \
+               | awk -v g="$pg" -v pp="$PPID" '$3 == g && $2 == pp { $2 = ""; $3 = ""; sub(/   /, " "); print }' || true)
+  fi
+  [ -n "${AB_LAST_TOOL:-}" ] && { basename_only "$AB_LAST_TOOL"; return; }
+  [ -n "${AB_TOOL:-}" ] && { basename_only "$AB_TOOL"; return; }
+  printf 'manual'
+}
+t=$(clean "$(guess_tool)")
+
+[ -s "$idx" ] || printf '# hora\tetiqueta\therramienta\torigen\tsha256\tarchivo\n' >"$idx"
+
+if [ -n "$src" ]; then
+  [ -f "$src" ] || { echo "loot: no existe el archivo: $src" >&2; exit 1; }
+  origin=$(readlink -f "$src")
+  name=$(basename "$src")
+  dest="$L/$name"
+  case "$origin" in "$L"/*) echo "loot: $src ya está en $L" >&2; exit 1 ;; esac
+  if [ -e "$dest" ]; then dest="$L/${name%.*}-$(date +%Y%m%d-%H%M%S).${name##*.}"; [ "$name" = "${name%.*}" ] && dest="$L/$name-$(date +%Y%m%d-%H%M%S)"; fi
+  mv -n -- "$src" "$dest"
+  [ -e "$dest" ] || { echo "loot: no se pudo mover $src" >&2; exit 1; }
+  chmod 600 "$dest" 2>/dev/null || true
+  ab_copy "$dest" >/dev/null 2>&1 || true
+  what="ruta copiada al portapapeles"
+else
+  [ -t 0 ] && { echo "loot: pasa un archivo o algo por la tubería:  cmd | loot $label" >&2; exit 2; }
+  origin=stdin
+  dest="$L/$slug.txt"
+  [ -e "$dest" ] && dest="$L/$slug-$(date +%Y%m%d-%H%M%S).txt"
+  cat >"$dest"
+  [ -s "$dest" ] || { rm -f "$dest"; echo "loot: stdin vacío, no se guarda nada" >&2; exit 1; }
+  chmod 600 "$dest"
+  ab_copy "$(cat "$dest")" >/dev/null 2>&1 || true
+  what="contenido copiado al portapapeles"
+fi
+sum=$(sha256sum "$dest" | awk '{print $1}')
+printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$(clean "$label")" "$t" "$(clean "$origin")" "$sum" "${dest#"$dir"/}" >>"$idx"
+ab_timeline "$ip" loot "$label → ${dest#"$dir"/} ($t)"
+echo "[+] $label → $dest  (sha256 ${sum:0:16}…, $what)"
+ab_notify "$label → loot/$(basename "$dest")" "Loot · $ip"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — VPN / lab switcher (rofi)
+# AutoBSPWN v3.3.0 — VPN / lab switcher (rofi)
 # Profiles:
 #   ~/vpn/*.ovpn            OpenVPN (HTB, THM, OffSec…)
 #   ~/vpn/*.conf            WireGuard if it has [Interface], otherwise OpenVPN

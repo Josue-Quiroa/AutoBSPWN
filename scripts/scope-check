@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# AutoBSPWN v3.3.0 — scope-check <ip|host|CIDR|URL> [...]   (scope guard)
+#   Prints in-scope / out-of-scope / no-scope for each argument, using the ACTIVE target's
+#   ~/targets/<ip>/scope.conf (or $AB_SCOPE_FILE, or ~/targets/<arg>/scope.conf).
+#   -v  also print the reason    -f FILE  use this scope file
+#   exit: 0 all in scope · 1 any out of scope · 2 no scope defined · 3 unparseable argument
+set -u
+lib() {
+  local c
+  for c in "${AB_LIB:-}" "$HOME/.config/bspwm/scripts/lib.sh" \
+           "$(dirname "$(readlink -f "$0")")/../config/bspwm/scripts/lib.sh"; do
+    [ -n "$c" ] && [ -r "$c" ] && { printf '%s\n' "$c"; return 0; }
+  done
+  return 1
+}
+LIB=$(lib) || { echo "scope-check: falta lib.sh (reinstala AutoBSPWN)" >&2; exit 3; }
+# shellcheck source=/dev/null
+. "$LIB"
+
+verbose=0
+args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -v|--verbose) verbose=1 ;;
+    -f|--file) export AB_SCOPE_FILE="${2:-}"; shift ;;
+    -h|--help) sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) args+=("$1") ;;
+  esac
+  shift
+done
+[ ${#args[@]} -gt 0 ] || { echo "Uso: scope-check [-v] [-f scope.conf] <ip|host|CIDR|URL>..." >&2; exit 3; }
+
+worst=0
+for a in "${args[@]}"; do
+  rc=0
+  ab_scope_check "$a" >/dev/null || rc=$?
+  res=$AB_SCOPE_STATUS
+  if [ "$verbose" = 1 ] || [ ${#args[@]} -gt 1 ]; then
+    printf '%s\t%s%s\n' "$a" "$res" "$([ "$verbose" = 1 ] && printf '\t%s' "$AB_SCOPE_REASON")"
+  else
+    printf '%s\n' "$res"
+  fi
+  # severity: out (1) > invalid (3) > no-scope (2) > in (0)
+  case $rc in
+    1) worst=1 ;;
+    3) [ "$worst" -ne 1 ] && worst=3 ;;
+    2) [ "$worst" -eq 0 ] && worst=2 ;;
+  esac
+done
+exit "$worst"

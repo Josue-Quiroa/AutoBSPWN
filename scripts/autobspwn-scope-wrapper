@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# AUTOBSPWN-SCOPE-WRAPPER — AutoBSPWN v3.3.0 scope guard for nmap / ffuf.
+# Installed as ~/.local/bin/nmap and ~/.local/bin/ffuf (they come first in PATH). Before
+# running the real tool it checks every target against the active target's scope.conf
+# (see scope-check). Out of scope → critical notification and exit 1, unless --force.
+#   nmap ... --force          run anyway (logged in the target's timeline)
+#   AUTOBSPWN_SCOPE_GUARD=0   disable for one command
+# No scope.conf (or no rules) → runs untouched. NOTE: `sudo nmap` uses sudo's secure_path
+# and skips this wrapper; tscan does its own check before calling sudo.
+set -u
+tool=$(basename "$0")
+if [ "$tool" = autobspwn-scope-wrapper ]; then tool=${1:-}; shift || true; fi
+case "$tool" in nmap|ffuf) ;; *) echo "autobspwn-scope-wrapper: uso: nmap|ffuf ..." >&2; exit 2 ;; esac
+
+lib() {
+  local c
+  for c in "${AB_LIB:-}" "$HOME/.config/bspwm/scripts/lib.sh" \
+           "$(dirname "$(readlink -f "$0")")/../config/bspwm/scripts/lib.sh"; do
+    [ -n "$c" ] && [ -r "$c" ] && { printf '%s\n' "$c"; return 0; }
+  done
+  return 1
+}
+real_bin() {   # same rule as ab_real_bin, usable without lib.sh
+  local d IFS=:
+  for d in $PATH; do
+    [ -n "$d" ] && [ -x "$d/$1" ] && [ ! -d "$d/$1" ] || continue
+    grep -q 'AUTOBSPWN-SCOPE-WRAPPER' "$d/$1" 2>/dev/null && continue
+    printf '%s\n' "$d/$1"; return 0
+  done
+  return 1
+}
+REAL=$(real_bin "$tool") || { echo "$tool: no está instalado (sudo apt install $tool)" >&2; exit 127; }
+
+force=0
+args=()
+for a in "$@"; do
+  if [ "$a" = --force ]; then force=1; else args+=("$a"); fi
+done
+
+# Already checked by tscan / the HUD, guard disabled, or no arguments (help/version)
+if [ "${AB_SCOPE_CHECKED:-0}" = 1 ] || [ "${AUTOBSPWN_SCOPE_GUARD:-1}" = 0 ] || [ ${#args[@]} -eq 0 ]; then
+  exec "$REAL" "${args[@]}"
+fi
+LIB=$(lib) || exec "$REAL" "${args[@]}"
+# shellcheck source=/dev/null
+. "$LIB"
+
+targets=()
+nmap_targets() {
+  # options that take a value (the value is not a target)
+  local takes=' -p -e -S -D -g -oN -oX -oG -oA -oS -oM -iR -sI -b --script --script-args --script-args-file
+    --exclude --excludefile --top-ports --port-ratio --min-rate --max-rate --max-retries --host-timeout
+    --datadir --data-length --data --data-string --ttl --spoof-mac --dns-servers --version-intensity
+    --stylesheet --resume --scan-delay --max-scan-delay --min-hostgroup --max-hostgroup
+    --min-parallelism --max-parallelism --min-rtt-timeout --max-rtt-timeout --initial-rtt-timeout
+    --mtu --proxies --source-port --exclude-ports --servicedb --versiondb --ip-options --script-timeout '
+  local i=0 a n=${#args[@]} line words
+  takes=" ${takes//$'\n'/ } "
+  while [ "$i" -lt "$n" ]; do
+    a=${args[$i]}
+    if [ "$a" = -iL ]; then
+      i=$((i + 1))
+      if [ "$i" -lt "$n" ] && [ -r "${args[$i]}" ]; then
+        while read -r line; do
+          line=${line%%#*}
+          read -r -a words <<<"$line"     # no globbing: 10.0.0.* stays literal
+          targets+=("${words[@]}")
+        done < <(head -n 2000 "${args[$i]}")
+      fi
+    elif [[ "$takes" == *" $a "* ]]; then
+      i=$((i + 1))
+    elif [[ "$a" != -* ]]; then
+      targets+=("$a")
+    fi
+    i=$((i + 1))
+  done
+}
+ffuf_targets() {
+  local i=0 a n=${#args[@]} u=''
+  while [ "$i" -lt "$n" ]; do
+    a=${args[$i]}
+    case "$a" in
+      -u) i=$((i + 1)); u=${args[$i]:-} ;;
+      -u=*) u=${a#-u=} ;;
+    esac
+    i=$((i + 1))
+  done
+  [ -n "$u" ] || return 0
+  u=${u//FUZZ/fuzz}           # vhost fuzzing (FUZZ.corp.local) → judge the parent domain
+  targets+=("$u")
+}
+"${tool}_targets"
+
+if [ ${#targets[@]} -gt 0 ] && ! ab_scope_guard "$force" "$tool" "${targets[@]}"; then
+  echo "    ($tool --force ... para lanzarlo igualmente)" >&2
+  exit 1
+fi
+export AB_SCOPE_CHECKED=1
+exec "$REAL" "${args[@]}"

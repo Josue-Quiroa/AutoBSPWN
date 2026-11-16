@@ -1,5 +1,5 @@
-<!-- autobspwn-atajos v3.2.0 — generado con: ~/.config/bspwm/scripts/keys-help.sh --markdown -->
-# AutoBSPWN 3.2.0 — Atajos y comandos
+<!-- autobspwn-atajos v3.3.0 — generado con: ~/.config/bspwm/scripts/keys-help.sh --markdown -->
+# AutoBSPWN 3.3.0 — Atajos y comandos
 
 **Super** = tecla Windows. Esta misma lista sale en pantalla con **Super + F1** o **Super + /**
 (puedes escribir para filtrar y Enter ejecuta la acción). Se genera leyendo
@@ -181,6 +181,11 @@ Notas:
 | `tgt` | `cd ~/targets/<ip del target>` (crea `nmap/ loot/ exploits/`) |
 | `tgt <nombre\|ip>` | Activa un target guardado o reciente y entra en su carpeta (Tab autocompleta) |
 | `targetFav add <ip> [nombre] [etiqueta]` · `rm` · `list` · `use` | Gestiona los targets guardados (`~/.config/bspwm/targets.tsv`) |
+| `tscan fast\|full\|udp\|ad [ip]` | Recon del target: resultados en `~/targets/<ip>/nmap/`, actualiza `ports.txt` y avisa de puertos nuevos (respeta el scope; `--force`) |
+| `scope-check [-v] <ip\|host\|CIDR\|URL>` | ¿Dentro del scope? (`~/targets/<ip>/scope.conf`: `in:` / `out:`) |
+| `nmap …` / `ffuf …` | Pasan por el guardia de scope; `--force` para lanzar fuera de scope |
+| `loot <etiqueta> archivo` · `cmd \| loot <etiqueta>` · `loot --list` | Guarda loot en `~/targets/<ip>/loot/` con hora, herramienta, origen y sha256 |
+| `autobspwn-update` | `git pull` del repo + `Install.sh --update` (sólo configs; conserva tus ediciones) |
 | `mkt <nombre>` | Crea y entra en `~/Machines/<nombre>/{nmap,content,exploits,scripts,loot}` |
 | `ports archivo.nmap` | Lista los puertos abiertos separados por coma (para `nmap -p`) |
 | `extractHosts [archivo]` | Extrae las IPs únicas de un archivo o de la entrada estándar |

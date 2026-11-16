@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — theme picker (rofi) → theme-sync --menu
+# AutoBSPWN v3.3.0 — theme picker (rofi) → theme-sync --menu
 # Usage: theme-menu.sh [--next|--prev]   (no args = rofi menu)
 ts="$HOME/.local/bin/theme-sync"
 [ -x "$ts" ] || ts=$(command -v theme-sync 2>/dev/null || true)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — wallpaper picker with previews (Super+w)
+# AutoBSPWN v3.3.0 — wallpaper picker with previews (Super+w)
 #   wallpaper.sh            rofi grid with thumbnails of ~/.config/bspwm/walls/*
 #   wallpaper.sh --random   random wallpaper (Super+Shift+w)
 #   wallpaper.sh FILE       set FILE

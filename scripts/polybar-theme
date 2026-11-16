@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — kept for compatibility: polybar-theme <tema> == theme-sync <tema>
+# AutoBSPWN v3.3.0 — kept for compatibility: polybar-theme <tema> == theme-sync <tema>
 if [ -x "$HOME/.local/bin/theme-sync" ]; then
   exec "$HOME/.local/bin/theme-sync" "$@"
 fi

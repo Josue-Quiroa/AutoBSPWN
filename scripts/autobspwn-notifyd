@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — D-Bus activation router for org.freedesktop.Notifications.
+# AutoBSPWN v3.3.0 — D-Bus activation router for org.freedesktop.Notifications.
 # Installed as ~/.local/share/dbus-1/services/org.freedesktop.Notifications.service
 # (the user directory wins over /usr/share/dbus-1/services).
 # Why: dunst, mate-notification-daemon, xfce4-notifyd… all declare the same bus name

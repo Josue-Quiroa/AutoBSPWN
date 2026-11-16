@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# AutoBSPWN v3.3.0 — autobspwn-update: bring your AutoBSPWN clone up to date and re-sync the
+# dotfiles, scripts, themes, wallpapers and ATAJOS (Install.sh --update: no apt, no upgrade,
+# no fonts, no tools; backup first; your edited files are kept). Reloads bspwm/polybar/sxhkd.
+#   autobspwn-update                 git pull --ff-only + Install.sh --update
+#   autobspwn-update --no-pull       only Install.sh --update from the clone
+#   autobspwn-update --repo DIR      use this clone (remembered for next time)
+#   autobspwn-update --where         print the clone it would use
+# The clone is found in: --repo, $AUTOBSPWN_REPO, ~/.config/autobspwn/repo (written by
+# Install.sh), then ~/AutoBSPWN, ~/autobspwn, ~/git/, ~/tools/, ~/Downloads/, /opt/.
+set -Eeuo pipefail
+URL="https://github.com/Josue-Quiroa/AutoBSPWN"
+STATE="$HOME/.config/autobspwn/repo"
+
+pull=1; where=0; repo=''
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --no-pull) pull=0 ;;
+    --where) where=1 ;;
+    --repo) repo=${2:-}; shift ;;
+    --repo=*) repo=${1#--repo=} ;;
+    -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "autobspwn-update: opción desconocida: $1 (--help)" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+is_repo() { [ -n "${1:-}" ] && [ -f "$1/Install.sh" ] && grep -q 'AutoBSPWN' "$1/Install.sh" 2>/dev/null; }
+
+find_repo() {
+  local c
+  for c in "$repo" "${AUTOBSPWN_REPO:-}" "$(cat "$STATE" 2>/dev/null || true)" \
+           "$HOME/AutoBSPWN" "$HOME/autobspwn" "$HOME/git/AutoBSPWN" "$HOME/tools/AutoBSPWN" \
+           "$HOME/Downloads/AutoBSPWN" "$HOME/Descargas/AutoBSPWN" /opt/AutoBSPWN; do
+    if is_repo "$c"; then (cd "$c" && pwd); return 0; fi
+  done
+  return 1
+}
+
+if ! dir=$(find_repo); then
+  if [ -n "$repo" ]; then echo "autobspwn-update: $repo no parece un clon de AutoBSPWN (falta Install.sh)" >&2; fi
+  cat >&2 <<MSG
+[-] No encuentro tu copia de AutoBSPWN.
+    Clónala y actualiza desde ahí (luego autobspwn-update la recordará):
+      git clone $URL ~/AutoBSPWN
+      autobspwn-update --repo ~/AutoBSPWN
+MSG
+  exit 1
+fi
+[ "$where" = 1 ] && { echo "$dir"; exit 0; }
+
+if [ "$pull" = 1 ]; then
+  if git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "[*] git pull --ff-only en $dir"
+    before=$(git -C "$dir" rev-parse --short HEAD 2>/dev/null || echo '?')
+    if ! git -C "$dir" pull --ff-only; then
+      echo "[-] git pull --ff-only falló (¿cambios locales o ramas divergentes?). No se toca nada." >&2
+      echo "    Revisa con: git -C '$dir' status   ·   o actualiza sin pull: autobspwn-update --no-pull" >&2
+      exit 1
+    fi
+    after=$(git -C "$dir" rev-parse --short HEAD 2>/dev/null || echo '?')
+    [ "$before" = "$after" ] && echo "[+] Ya estaba al día ($after)" || echo "[+] $before → $after"
+  else
+    echo "[!] $dir no es un clon git (¿descargado como zip/tar?): se sincroniza sin pull." >&2
+    echo "    Para recibir actualizaciones: git clone $URL ~/AutoBSPWN" >&2
+  fi
+fi
+
+mkdir -p "$(dirname "$STATE")"
+printf '%s\n' "$dir" >"$STATE"
+exec bash "$dir/Install.sh" --update

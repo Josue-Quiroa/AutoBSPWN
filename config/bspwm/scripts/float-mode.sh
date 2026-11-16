@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — desktop float mode: arrange windows freely, like a normal desktop.
+# AutoBSPWN v3.3.0 — desktop float mode: arrange windows freely, like a normal desktop.
 #   float-mode.sh             toggle the focused desktop  (Super+Shift+s)
 #   float-mode.sh on|off      force it                    float-mode.sh --status (polybar)
 #   float-mode.sh --watch     polybar tail module          float-mode.sh --prune (bspwmrc)

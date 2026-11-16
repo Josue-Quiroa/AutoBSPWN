@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — targetFav: saved targets (favorites) for the Target HUD.
+# AutoBSPWN v3.3.0 — targetFav: saved targets (favorites) for the Target HUD.
 #   targetFav list                     ip<TAB>nombre<TAB>etiqueta (favoritos)
 #   targetFav add <ip> [nombre] [etiqueta...]   añade o actualiza (dedup por IP)
 #   targetFav rm <ip|nombre>           quita un favorito

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — cheat sheet built live from ~/.config/sxhkd/sxhkdrc (Super+F1 / Super+/).
+# AutoBSPWN v3.3.0 — cheat sheet built live from ~/.config/sxhkd/sxhkdrc (Super+F1 / Super+/).
 # sxhkdrc convention:  "## Categoría"  ·  "# descripción" right above each chord.
 #   keys-help.sh              rofi list (type to filter; Enter runs the action)
 #   keys-help.sh --text       plain text      keys-help.sh --markdown   tables (ATAJOS.md)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — right-click menu on the empty desktop (sxhkd: ~button3)
+# AutoBSPWN v3.3.0 — right-click menu on the empty desktop (sxhkd: ~button3)
 # (yoodreamer/AutoBSPWM idea: jgmenu context menu; own menu + code). Falls back to rofi.
 #   desktop-menu.sh          only opens if the pointer is over the root window (wallpaper)
 #   desktop-menu.sh --force  open anyway (Super+Shift+m / keyboard)

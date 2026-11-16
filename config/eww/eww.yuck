@@ -1,4 +1,4 @@
-;; AutoBSPWN v3.2.0 — eww dashboard (Super+F2 / power button right-click)
+;; AutoBSPWN v3.3.0 — eww dashboard (Super+F2 / power button right-click)
 ;; Layout inspired by adi1090x/widgets (dashboard); own code.
 ;; Opened / closed by ~/.config/bspwm/scripts/dashboard.sh (the eww daemon only runs while
 ;; the dashboard is open, so it costs nothing the rest of the time).

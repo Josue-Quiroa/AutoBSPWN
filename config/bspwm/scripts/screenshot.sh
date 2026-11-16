@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — screenshots saved to ~/Pictures/Screenshots AND copied to the clipboard
+# AutoBSPWN v3.3.0 — screenshots saved to ~/Pictures/Screenshots AND copied to the clipboard
 # (yoodreamer/AutoBSPWM idea: capture + clipboard; own code)
 #   screenshot.sh area     select a region (flameshot GUI)     Super+a / Print
 #   screenshot.sh full     whole screen                        Super+Print

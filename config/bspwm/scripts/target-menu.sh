@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.2.0 — Target HUD menu (rofi). Builds on setFocus / clearFocus / targetFav.
+# AutoBSPWN v3.3.0 — Target HUD menu (rofi). Builds on setFocus / clearFocus / targetFav.
 #   target-menu.sh           actions for the active target (or "set" if there is none)
 #   target-menu.sh --set     pick a saved/recent target or type "IP [nombre]"
 #   target-menu.sh --saved   saved targets (favorites): pick one = make it active
 #   target-menu.sh --manage  remove saved targets
 # Saved targets: ~/.config/bspwm/targets.tsv (ip<TAB>nombre<TAB>etiqueta), via targetFav.
 # Quick commands: ~/.config/bspwm/target-commands.conf ("Etiqueta | comando {ip} {name} {dir} {ports}").
+# v3.3: scope guard (~/targets/<ip>/scope.conf) before anything that touches the target,
+# recon through tscan, and every action is logged in ~/targets/<ip>/timeline.tsv.
 # shellcheck source=/dev/null
 . "$(dirname "$0")/lib.sh"
 ab_need_rofi
 
-SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
 HIST="$HOME/.config/bspwm/focus_history"
 FAVS="$HOME/.config/bspwm/targets.tsv"
 CMDS="$HOME/.config/bspwm/target-commands.conf"
@@ -59,6 +60,37 @@ focus_on() {
     ab_notify "$msg"
     return 1
   fi
+  ab_timeline "$1" focus "target activo${2:+ ($2)}"
+}
+
+# Scope guard for HUD actions: 0 = go. Out of scope → critical notification + explicit choice.
+FORCED=0
+scope_ok() {
+  local what=$1 rc=0 ans
+  FORCED=0
+  ab_scope_check "$ip" >/dev/null || rc=$?
+  [ "$rc" -eq 1 ] || return 0
+  ab_notify_crit "$what: $ip está FUERA DE SCOPE ($AB_SCOPE_REASON)" "Fuera de scope"
+  ans=$(printf '%s\n' "󰅖  Cancelar" "󰀦  Lanzar igualmente (--force)" \
+    | ab_menu "Fuera de scope" -mesg "$ip: $AB_SCOPE_REASON · ${AB_SCOPE_SRC/#$HOME/\~}") || return 1
+  case "$ans" in
+    *"Lanzar igualmente"*) FORCED=1; ab_timeline "$ip" scope-force "$what"; return 0 ;;
+  esac
+  ab_timeline "$ip" scope-block "$what"
+  return 1
+}
+
+tscan_bin() {
+  if [ -x "$HOME/.local/bin/tscan" ]; then echo "$HOME/.local/bin/tscan"; else command -v tscan; fi
+}
+
+run_tscan() {   # run_tscan <profile>
+  local t fa=()
+  t=$(tscan_bin) || { ab_notify "tscan no está en ~/.local/bin (./Install.sh --update)"; return 1; }
+  scope_ok "tscan $1" || return 0
+  [ "$FORCED" = 1 ] && fa=(--force)
+  AB_SCOPE_FORCE_LOGGED=$FORCED ab_term --title "tscan $1 $ip" -- \
+    bash -c '"$@"; echo; read -r -p "Enter para cerrar..." _' _ "$t" "${fa[@]}" "$1" "$ip"
 }
 
 set_target() {
@@ -223,10 +255,14 @@ if [ -n "$ports" ]; then
   done
 fi
 opts+=("󰣀  SSH a $ip")
-opts+=("󰍉  Nmap rápido (top 1000)")
-opts+=("󰍉  Nmap full TCP + -sCV")
+opts+=("󰍉  Recon rápido · tscan fast (top 1000)")
+opts+=("󰍉  Recon full TCP · tscan full (-p- y -sCV)")
+opts+=("󰍉  Recon UDP · tscan udp (top 100)")
+opts+=("󰍉  Recon AD · tscan ad (DNS, Kerberos, LDAP, SMB, WinRM)")
 opts+=("󰉋  Terminal en ~/targets/$ip")
 opts+=("󰠮  Notas del target")
+opts+=("󰒃  Editar scope (scope.conf)")
+opts+=("󰋚  Timeline y loot del target")
 if [ -n "$name" ] && ! awk -v ip="$ip" '$1==ip{f=1} END{exit !f}' /etc/hosts 2>/dev/null; then
   opts+=("󰒓  Añadir $ip $name a /etc/hosts")
 fi
@@ -246,12 +282,23 @@ opts+=("󰓾  Cambiar target")
 opts+=("󰅖  Limpiar focus")
 
 mesg="󰓾 ${name:+$name  }$ip${ports:+   ·  puertos: $ports}"
+scope_rc=0
+ab_scope_check "$ip" >/dev/null || scope_rc=$?
+case $scope_rc in
+  0) mesg="$mesg   ·  scope ✓" ;;
+  1) mesg="$mesg   ·  ⚠ FUERA DE SCOPE ($AB_SCOPE_REASON)" ;;
+esac
 pick=$(printf '%s\n' "${opts[@]}" | ab_menu "Target" -mesg "$mesg") || exit 0
+
+# Timeline: the action label only (never command lines: they may carry passwords)
+ab_timeline "$ip" hud "${pick#*  }"
 
 # Quick commands first: their labels are free text and must not hit the built-in patterns
 for i in "${!CMD_LABELS[@]}"; do
   if [ "$pick" = "󰆍  ${CMD_LABELS[$i]}" ]; then
-    run_command "${CMD_LABELS[$i]}" "${CMD_LINES[$i]}"
+    scope_ok "${CMD_LABELS[$i]}" || exit 0
+    # forced from the HUD → the nmap/ffuf wrappers inside the command must not block it again
+    AB_SCOPE_CHECKED=$FORCED run_command "${CMD_LABELS[$i]}" "${CMD_LINES[$i]}"
     exit 0
   fi
 done
@@ -259,15 +306,23 @@ done
 case "$pick" in
   *"Copiar IP"*)      ab_copy "$ip" && ab_notify "Copiado: $ip" ;;
   *"Copiar nombre"*)  ab_copy "$name" && ab_notify "Copiado: $name" ;;
-  *"Abrir "*)         ab_browser "${pick##* }" ;;
-  *"SSH a"*)          ssh_target "$ip" ;;
-  *"Nmap rápido"*)    ab_target_dir "$ip" >/dev/null; ab_term --title "nmap $ip" -- bash -c '"$@"; echo; read -r -p "Enter para cerrar..." _' _ "$SCRIPTS/target-scan.sh" quick "$ip" ;;
-  *"Nmap full"*)      ab_target_dir "$ip" >/dev/null; ab_term --title "nmap $ip" -- bash -c '"$@"; echo; read -r -p "Enter para cerrar..." _' _ "$SCRIPTS/target-scan.sh" full "$ip" ;;
+  *"Abrir "*)         scope_ok "navegador" && ab_browser "${pick##* }" ;;
+  *"SSH a"*)          scope_ok "ssh" && ssh_target "$ip" ;;
+  *"tscan fast"*)     run_tscan fast ;;
+  *"tscan full"*)     run_tscan full ;;
+  *"tscan udp"*)      run_tscan udp ;;
+  *"tscan ad"*)       run_tscan ad ;;
   *"Terminal en"*)    d=$(ab_target_dir "$ip"); if ab_has kitty; then kitty --directory "$d" >/dev/null 2>&1 & else ab_term -- bash -c 'cd "$1" && exec "${SHELL:-bash}"' _ "$d"; fi ;;
   *"Notas del"*)      d=$(ab_target_dir "$ip"); ed=${EDITOR:-}
                       [ -z "$ed" ] && for e in nvim vim nano vi; do ab_has "$e" && ed=$e && break; done
                       ab_term --title "notas $ip" -- "${ed:-vi}" "$d/notes.md" ;;
   *"/etc/hosts"*)     add_hosts "$ip" "$name" ;;
+  *"Editar scope"*)   d=$(ab_target_dir "$ip"); ed=${EDITOR:-}
+                      [ -f "$d/scope.conf" ] || printf '# in: 10.10.11.0/24\n# out: 10.10.11.1\n' >"$d/scope.conf"
+                      [ -z "$ed" ] && for e in nvim vim nano vi; do ab_has "$e" && ed=$e && break; done
+                      ab_term --title "scope $ip" -- "${ed:-vi}" "$d/scope.conf" ;;
+  *"Timeline y loot"*) d=$(ab_target_dir "$ip")
+                      ab_term --title "timeline $ip" -- bash -c 'for f in "$1/timeline.tsv" "$1/loot/index.tsv"; do echo "== ${f#"$1"/}"; if [ -s "$f" ]; then column -t -s "	" "$f" 2>/dev/null || cat "$f"; else echo "(vacío)"; fi; echo; done; read -r -p "Enter para cerrar..." _' _ "$d" ;;
   *"Guardar en targets"*)
                       # a name targetFav refuses (spaces, odd chars) → save the IP alone
                       if [ -n "$tf" ] && { msg=$("$tf" add "$ip" "$name" 2>&1) || msg=$("$tf" add "$ip" 2>&1); }; then ab_notify "$msg"
