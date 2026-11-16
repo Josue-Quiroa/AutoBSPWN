@@ -202,6 +202,12 @@ Parrot Home no trae las tools de pentest. El instalador las ofrece y nunca abort
 
 ## Temas y wallpapers
 
+<div align="center">
+
+![10 temas de AutoBSPWN](assets/preview-themes.png)
+
+</div>
+
 Un solo cambio de tema (`Super`+`Shift`+`t`) reaplica colores en **polybar, bordes, kitty, rofi, dunst, lock y wallpaper** a la vez (también el dashboard y la imagen de bloqueo). Cada tema trae su fondo; con `Super`+`w` eliges entre los 11 incluidos (con miniaturas) y `Super`+`Shift`+`w` pone uno al azar.
 
 | Tema | Paleta | Wallpaper |
