@@ -1,4 +1,4 @@
-# AutoBSPWN zsh v3.0.0
+# AutoBSPWN zsh v3.2.0
 # Standalone: no oh-my-zsh required. Plugins come from distro packages; p10k is optional.
 export PATH="$HOME/.local/bin:$PATH"
 export _JAVA_AWT_WM_NONREPARENTING=1
@@ -46,12 +46,39 @@ alias theme='theme-sync'
 alias vpnmenu='$HOME/.config/bspwm/scripts/vpn-menu.sh'
 alias target='$HOME/.config/bspwm/scripts/target-menu.sh'
 alias tools='$HOME/.config/bspwm/scripts/tools-menu.sh'
-# cd into ~/targets/<focus ip> (created by the Target HUD)
+# tgt                → cd into ~/targets/<active target ip> (created if needed)
+# tgt <nombre|ip>    → make a saved/recent target active (targets.tsv, then history) and cd there
 tgt() {
-  local ip
+  local ip name r bin=$HOME/.local/bin
+  if [ -n "${1:-}" ]; then
+    if [ -x "$bin/targetFav" ] || command -v targetFav >/dev/null 2>&1; then
+      r=$("${bin}/targetFav" resolve "$1" 2>/dev/null || targetFav resolve "$1" 2>/dev/null)
+    else
+      r=$( { awk -F'\t' '!/^[[:space:]]*#/ && NF' "$HOME/.config/bspwm/targets.tsv" 2>/dev/null
+             cat "$HOME/.config/bspwm/focus_history" 2>/dev/null; } \
+           | awk -F'\t' -v k="$1" '$1==k || tolower($2)==tolower(k) {print $1 "\t" $2; exit}')
+    fi
+    if [ -n "$r" ]; then
+      ip=${r%%$'\t'*}; name=${r#*$'\t'}
+    elif [[ $1 != *[^0-9.]* ]]; then
+      ip=$1; name=          # looks like an IP: setFocus validates it
+    else
+      echo "tgt: «$1» no está en targets.tsv ni en el historial (targetFav list)" >&2; return 1
+    fi
+    local sf=setFocus out
+    [ -x "$bin/setFocus" ] && sf=$bin/setFocus
+    out=$("$sf" "$ip" ${name:+"$name"} 2>&1) || { echo "tgt: $out" >&2; return 1; }
+  fi
   ip=$(tr -d '[:space:]' <"$HOME/.config/bspwm/focus_ip" 2>/dev/null)
-  [ -n "$ip" ] || { echo "Sin focus: setFocus <ip> [nombre]"; return 1; }
+  [ -n "$ip" ] || { echo "Sin focus: setFocus <ip> [nombre]  ·  tgt <nombre|ip>"; return 1; }
   mkdir -p "$HOME/targets/$ip"/{nmap,loot,exploits} && cd "$HOME/targets/$ip" && pwd
+}
+# Tab-complete tgt with saved + recent target names/IPs
+_tgt() {
+  local -a c
+  c=(${(f)"$( { awk -F'\t' '!/^[[:space:]]*#/ && NF {print $1; if ($2!="") print $2}' "$HOME/.config/bspwm/targets.tsv"
+               awk -F'\t' 'NF {print $1; if ($2!="") print $2}' "$HOME/.config/bspwm/focus_history"; } 2>/dev/null | awk '!s[$0]++')"})
+  compadd -a c
 }
 
 mkt() {
@@ -67,6 +94,7 @@ ports() {
 
 # Completions first, then widgets, then p10k; syntax-highlighting MUST be last
 autoload -Uz compinit && compinit -C
+(( $+functions[compdef] )) && compdef _tgt tgt
 
 [ -f /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ] && source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 # fzf: Debian/Kali/Parrot path first, then other common locations

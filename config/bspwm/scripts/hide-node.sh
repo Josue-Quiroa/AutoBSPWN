@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.0.0 — "minimize" windows in bspwm (idea from yoodreamer/AutoBSPWM; own code)
+# AutoBSPWN v3.2.0 — "minimize" windows in bspwm (idea from yoodreamer/AutoBSPWM; own code)
 #   hide-node.sh --hide      hide the focused window          (Super+n)
 #   hide-node.sh --menu      rofi list of hidden windows → restore   (Super+Shift+n)
 #   hide-node.sh --last      restore the most recently hidden one

@@ -6,6 +6,6 @@ BORDER_FOCUSED="#c6a0f6"; BORDER_NORMAL="#363a4f"; BORDER_ACTIVE="#8aadf4"; PRES
 K_CURSOR="#f4dbd6"; K_SEL_BG="#f4dbd6"; K_URL="#8aadf4"
 K_COLORS=("#494d64" "#ed8796" "#a6da95" "#eed49f" "#8aadf4" "#f5bde6" "#8bd5ca" "#b8c0e0"
           "#5b6078" "#ed8796" "#a6da95" "#eed49f" "#8aadf4" "#f5bde6" "#8bd5ca" "#a5adcb")
-# v3 layout: polybar pill shades (shade1 = outer, shade3 = inner), text on them, wallpaper
+# v3 layout: polybar accent-island shades (shade1 = launcher/clock, shade2 = volume, shade3 = target), text on them, wallpaper
 SHADE1="#c6a0f6"; SHADE2="#8aadf4"; SHADE3="#7dc4e4"; ON_SHADE="#181926"; ON_SHADE_DIM="#494d64"
 WALL="starry-lake-boat.png"

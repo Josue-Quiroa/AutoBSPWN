@@ -1,4 +1,4 @@
-# AutoBSPWN theme: hacker (green phosphor on black)
+# AutoBSPWN theme: Hacker · verde fósforo — green phosphor on black.
 BG="#0a0e0a"; BG_ALT="#121812"; FG="#e6ffe6"; MUTED="#3d5c3d"
 ACCENT="#00ff41"; ACCENT2="#00b4d8"; URGENT="#ff2e63"; SUCCESS="#00ff41"; CRUST="#000000"
 ROFI_BG_ALPHA="f2"
@@ -6,6 +6,6 @@ BORDER_FOCUSED="#00ff41"; BORDER_NORMAL="#121812"; BORDER_ACTIVE="#00b4d8"; PRES
 K_CURSOR="#00ff41"; K_SEL_BG="#00ff41"; K_URL="#00b4d8"
 K_COLORS=("#0d130d" "#ff2e63" "#00ff41" "#f1fa8c" "#00b4d8" "#ff79c6" "#39ff14" "#b6e8b6"
           "#3d5c3d" "#ff5c8a" "#5cff7a" "#f6fbb0" "#48cae4" "#ff9ad5" "#7dff5c" "#e6ffe6")
-# v3 layout: polybar pill shades (shade1 = outer, shade3 = inner), text on them, wallpaper
+# v3 layout: polybar accent-island shades (shade1 = launcher/clock, shade2 = volume, shade3 = target), text on them, wallpaper
 SHADE1="#003b12"; SHADE2="#00561c"; SHADE3="#007a2a"; ON_SHADE="#d6ffd6"; ON_SHADE_DIM="#7fd88f"
 WALL="city-night-lights.jpg"

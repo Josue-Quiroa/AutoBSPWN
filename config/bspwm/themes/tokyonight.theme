@@ -1,0 +1,11 @@
+# AutoBSPWN theme: Tokyo Night (folke/tokyonight.nvim, variante night) — official palette values; key names are AutoBSPWN own
+BG="#1a1b26"; BG_ALT="#292e42"; FG="#c0caf5"; MUTED="#565f89"
+ACCENT="#7aa2f7"; ACCENT2="#bb9af7"; URGENT="#f7768e"; SUCCESS="#9ece6a"; CRUST="#16161e"
+ROFI_BG_ALPHA="ee"
+BORDER_FOCUSED="#7aa2f7"; BORDER_NORMAL="#292e42"; BORDER_ACTIVE="#bb9af7"; PRESEL="#9ece6a"
+K_CURSOR="#c0caf5"; K_SEL_BG="#7aa2f7"; K_URL="#7dcfff"
+K_COLORS=("#15161e" "#f7768e" "#9ece6a" "#e0af68" "#7aa2f7" "#bb9af7" "#7dcfff" "#a9b1d6"
+          "#414868" "#f7768e" "#9ece6a" "#e0af68" "#7aa2f7" "#bb9af7" "#7dcfff" "#c0caf5")
+# polybar accent shades (shade1/2/3) + text on them, wallpaper
+SHADE1="#7aa2f7"; SHADE2="#bb9af7"; SHADE3="#7dcfff"; ON_SHADE="#16161e"; ON_SHADE_DIM="#414868"
+WALL="pixel-evening-lights.jpg"

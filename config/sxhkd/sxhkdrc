@@ -1,4 +1,4 @@
-# AutoBSPWN sxhkd v3.0.0
+# AutoBSPWN sxhkd v3.2.0
 # Convention (read by keys-help.sh → Super+F1 and by ATAJOS.md):
 #   "## Categoría" starts a group · "# descripción" goes right above each chord.
 # Extra chords inspired by yoodreamer/AutoBSPWM and r1vs3c/auto-bspwm (own config, no duplicates).
@@ -42,6 +42,9 @@ super + shift + i
 # Quitar target (clearFocus)
 super + shift + c
     $HOME/.local/bin/clearFocus
+# Targets guardados (favoritos): elegir uno lo hace el target activo
+super + alt + i
+    $HOME/.config/bspwm/scripts/target-menu.sh --saved
 # VPN / lab switcher
 super + v
     $HOME/.config/bspwm/scripts/vpn-menu.sh
@@ -62,7 +65,7 @@ super + w
 # Wallpaper aleatorio
 super + shift + w
     $HOME/.config/bspwm/scripts/wallpaper.sh --random
-# Siguiente tema (amethyst → mocha → macchiato → hacker)
+# Siguiente tema (amethyst → mocha → macchiato → frappé → tokyonight → nord → gruvbox → dracula → rosé pine → hacker)
 super + shift + t
     $HOME/.config/bspwm/scripts/theme-menu.sh --next
 # Selector de temas
@@ -88,14 +91,17 @@ super + shift + q
 # Modo mosaico (tiled)
 super + t
     bspc node -t tiled
-# Modo flotante
+# Ventana actual: flotante ↔ mosaico (alternar)
 super + s
-    bspc node -t floating
-# Alternar flotante / mosaico
+    if bspc query -N -n focused.floating >/dev/null 2>&1; then bspc node -t tiled; else bspc node -t floating; fi
+# Alternar flotante / mosaico (igual que Super+s)
 super + shift + space
     bspc node -t '~floating'
-# Modo pseudo-tiled
+# Modo flotante de TODO el escritorio (acomodar libre con el ratón) ↔ mosaico automático
 super + shift + s
+    $HOME/.config/bspwm/scripts/float-mode.sh
+# Modo pseudo-tiled
+super + alt + s
     bspc node -t pseudo_tiled
 # Pantalla completa
 super + f
@@ -132,12 +138,15 @@ super + shift + {Left,Down,Up,Right}
 # Mover ventana flotante / intercambiar ventana en mosaico (vim)
 super + shift + {h,j,k,l}
     $HOME/.config/bspwm/scripts/smart-move.sh {west,south,north,east}
-# Redimensionar inteligente (crece hacia la flecha o encoge)
+# Redimensionar (flotante: ←/→ más estrecha/ancha, ↑/↓ más baja/alta; mosaico: mueve el borde)
 super + alt + {Left,Down,Up,Right}
     $HOME/.config/bspwm/scripts/bspwm-resize.sh {west,south,north,east}
-# Redimensionar inteligente (vim)
+# Redimensionar (vim)
 super + alt + {h,j,k,l}
     $HOME/.config/bspwm/scripts/bspwm-resize.sh {west,south,north,east}
+# Encoger la ventana (flotante o mosaico)
+super + alt + shift + {Left,Down,Up,Right}
+    $HOME/.config/bspwm/scripts/bspwm-resize.sh {west,south,north,east} shrink
 # Foco al nodo padre / hermano / primer hijo / segundo hijo
 super + alt + {p,b,comma,period}
     bspc node -f @{parent,brother,first,second}
@@ -209,6 +218,12 @@ super + F1
 # Hoja de atajos
 super + slash
     $HOME/.config/bspwm/scripts/keys-help.sh
+# Dashboard eww: perfil, reloj, sistema, sliders, accesos y apagado (otra vez = cerrar)
+super + F2
+    $HOME/.config/bspwm/scripts/dashboard.sh
+# Cerrar el dashboard (Esc sigue llegando a la ventana activa)
+~Escape
+    $HOME/.config/bspwm/scripts/dashboard.sh --escape
 # Calendario
 super + alt + c
     $HOME/.config/bspwm/scripts/calendar.sh
@@ -218,7 +233,7 @@ super + shift + m
 # Menú contextual al hacer clic derecho sobre el fondo
 ~button3
     $HOME/.config/bspwm/scripts/desktop-menu.sh
-# Bloquear pantalla
+# Bloquear pantalla (i3lock con el wallpaper desenfocado)
 super + shift + x
     $HOME/.config/bspwm/scripts/lock.sh
 # Bloquear pantalla (estilo r1vs3c)

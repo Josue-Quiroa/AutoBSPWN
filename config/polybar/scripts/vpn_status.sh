@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.0.0 — VPN status for polybar
+# AutoBSPWN v3.2.0 — VPN status for polybar
 #   (no args)  label: icon + profile/connection name + tun IP (+N if several)
 #   --ifaces   "iface<TAB>ipv4" for every VPN interface that is UP (used by vpn-menu.sh)
 #   --copy     copy the first VPN IP      --menu   open vpn-menu.sh
@@ -84,10 +84,17 @@ if [ -z "$IFACE" ]; then
   if [ -n "$NM" ]; then
     echo "%{F$warn}󰒃%{F-} $NM…"        # NM says active but no tun IP yet
   else
-    echo "%{F$muted}󰦞 VPN off%{F-}"
+    if [ "${AB_BAR_COMPACT:-0}" = 1 ]; then echo "%{F$muted}󰦞%{F-}"; else echo "%{F$muted}󰦞 VPN off%{F-}"; fi
   fi
   exit 0
 fi
+# Keep the bar compact: long profile names are shortened
+[ ${#LABEL} -gt 18 ] && LABEL="${LABEL:0:17}…"
+[ "${AB_BAR_COMPACT:-0}" = 1 ] && LABEL=
 extra=
 [ ${#IFS_UP[@]} -gt 1 ] && extra=" %{F$muted}+$(( ${#IFS_UP[@]} - 1 ))%{F-}"
-echo "%{F$ok}󰕥%{F-} ${LABEL:+$LABEL }%{F$ok}$IP%{F-}%{F$muted} $IFACE%{F-}$extra"
+if [ "${AB_BAR_COMPACT:-0}" = 1 ]; then
+  echo "%{F$ok}󰕥 $IP%{F-}$extra"
+else
+  echo "%{F$ok}󰕥%{F-} ${LABEL:+$LABEL }%{F$ok}$IP%{F-}%{F$muted} $IFACE%{F-}$extra"
+fi

@@ -1,0 +1,107 @@
+// AutoBSPWN v3.2.0 — eww dashboard style (rounded cards, theme colors from colors.scss)
+@import "colors";
+
+* { all: unset; font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace; }
+
+.dashboard {
+  background-color: rgba($crust, 0.94);
+  border: 2px solid rgba($accent, 0.55);
+  border-radius: 18px;
+  padding: 14px;
+  color: $fg;
+}
+.col { margin: 0 7px; }
+.card {
+  background-color: $bg;
+  border-radius: 14px;
+  padding: 14px;
+  margin: 7px 0;
+}
+
+// profile
+.profile { min-width: 230px; min-height: 300px; }
+.avatar {
+  font-size: 64px; color: $accent;
+  background-color: $bg-alt; border-radius: 60px;
+  min-width: 110px; min-height: 110px; margin: 6px 50px 12px 50px;
+}
+.name { font-size: 20px; font-weight: bold; color: $fg; }
+.host { font-size: 13px; color: $muted; margin-bottom: 14px; }
+.facts { margin-top: 6px; }
+.fact { font-size: 12px; color: $fg; margin: 3px 4px; }
+
+// pentest
+.pentest { min-width: 230px; min-height: 140px; }
+.pt-row { margin: 4px 2px; }
+.pt-icon { font-size: 20px; min-width: 34px; }
+.pt-icon.vpn { color: $green; }
+.pt-icon.target { color: $red; }
+.pt-text { font-size: 13px; }
+
+// clock
+.clock { min-width: 300px; min-height: 150px; }
+.hour, .minute { font-size: 58px; font-weight: bold; }
+.hour { color: $fg; }
+.minute { color: $accent; }
+.colon { font-size: 50px; color: $muted; margin: 0 6px; }
+.day { font-size: 15px; color: $accent; font-weight: bold; }
+.date { font-size: 12px; color: $muted; }
+
+// meters
+.system { min-width: 300px; min-height: 130px; }
+.meter { margin: 0 6px; }
+.ring {
+  background-color: $bg-alt;
+  color: $accent;
+}
+.ring-icon { font-size: 22px; color: $fg; }
+.meter-val { font-size: 13px; font-weight: bold; margin-top: 6px; }
+.meter-name { font-size: 11px; color: $muted; }
+
+// sliders
+.sliders { min-width: 300px; min-height: 92px; }
+.slider { margin: 4px 0; }
+.slider-icon { font-size: 20px; color: $accent; min-width: 30px; }
+.slider-val { font-size: 12px; color: $muted; min-width: 44px; margin-left: 8px; }
+.scale trough {
+  background-color: $bg-alt; border-radius: 8px;
+  min-height: 10px; min-width: 150px; margin: 0 6px;
+}
+.scale highlight { background-color: $accent; border-radius: 8px; }
+.scale.bright highlight { background-color: $yellow; }
+.scale:disabled highlight { background-color: $muted; }
+
+// calendar
+.cal { min-width: 300px; min-height: 230px; }
+.calendar { font-size: 12px; padding: 2px; }
+.calendar.header { color: $accent; font-weight: bold; }
+.calendar:selected { color: $crust; background-color: $accent; border-radius: 6px; }
+.calendar.highlight { color: $accent; font-weight: bold; }
+.calendar:indeterminate { color: $muted; }
+.calendar.button { color: $muted; }
+
+// quick launch
+.apps { min-height: 60px; }
+.app {
+  font-size: 22px; min-width: 40px; min-height: 40px;
+  border-radius: 12px; background-color: $bg-alt; margin: 0 3px;
+}
+.app:hover { background-color: $accent; color: $crust; }
+.a1 { color: $green; } .a2 { color: $blue; } .a3 { color: $yellow; }
+.a4 { color: $accent; } .a5 { color: $red; } .a6 { color: $cyan; }
+
+// power
+.power { min-height: 60px; }
+.pbtn {
+  font-size: 22px; min-width: 40px; min-height: 40px;
+  border-radius: 12px; background-color: $bg-alt; margin: 0 3px;
+}
+.pbtn.lock { color: $accent; }
+.pbtn.logout { color: $yellow; }
+.pbtn.suspend { color: $cyan; }
+.pbtn.reboot { color: $green; }
+.pbtn.shutdown { color: $red; }
+.pbtn:hover { background-color: $urgent; color: $crust; }
+.pbtn.lock:hover { background-color: $accent; }
+
+tooltip { background-color: $bg; border: 1px solid $accent; border-radius: 8px; color: $fg; padding: 4px; }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.0.0 — interactive setFocus prompt (Super+Shift+i / polybar)
+# AutoBSPWN v3.2.0 — interactive setFocus prompt (Super+Shift+i / polybar)
 setfocus_bin="${HOME}/.local/bin/setFocus"
 [ -x "$setfocus_bin" ] || setfocus_bin="$(command -v setFocus 2>/dev/null || true)"
 if [ -z "$setfocus_bin" ]; then

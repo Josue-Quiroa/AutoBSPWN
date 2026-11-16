@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.0.0 — nmap helper for the Target HUD (runs inside a terminal).
+# AutoBSPWN v3.2.0 — nmap helper for the Target HUD (runs inside a terminal).
 #   target-scan.sh quick|full <ip>
 # Output: ~/targets/<ip>/nmap/*  +  ~/targets/<ip>/ports.txt (comma list, used by the HUD)
 # Runs unprivileged (TCP connect scan). For SYN scans run nmap with sudo yourself.

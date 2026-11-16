@@ -1,0 +1,11 @@
+# AutoBSPWN theme: Rosé Pine (rose-pine/rose-pine-theme) — official palette values; key names are AutoBSPWN own
+BG="#191724"; BG_ALT="#26233a"; FG="#e0def4"; MUTED="#6e6a86"
+ACCENT="#c4a7e7"; ACCENT2="#ebbcba"; URGENT="#eb6f92"; SUCCESS="#9ccfd8"; CRUST="#13111c"
+ROFI_BG_ALPHA="ee"
+BORDER_FOCUSED="#ebbcba"; BORDER_NORMAL="#26233a"; BORDER_ACTIVE="#c4a7e7"; PRESEL="#31748f"
+K_CURSOR="#e0def4"; K_SEL_BG="#ebbcba"; K_URL="#9ccfd8"
+K_COLORS=("#26233a" "#eb6f92" "#31748f" "#f6c177" "#9ccfd8" "#c4a7e7" "#ebbcba" "#e0def4"
+          "#6e6a86" "#eb6f92" "#31748f" "#f6c177" "#9ccfd8" "#c4a7e7" "#ebbcba" "#e0def4")
+# polybar accent shades (shade1/2/3) + text on them, wallpaper
+SHADE1="#c4a7e7"; SHADE2="#ebbcba"; SHADE3="#31748f"; ON_SHADE="#191724"; ON_SHADE_DIM="#403d52"
+WALL="sakura-school-road.jpg"

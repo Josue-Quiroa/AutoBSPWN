@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.0.0 - BSPWM desktop installer
+# AutoBSPWN v3.2.0 - BSPWM desktop installer
 # Target: Parrot OS Home Edition (Parrot 6 "lory" / Debian 12 MATE and Parrot 7 "echo" /
 #         Debian 13 KDE). Also Parrot Security and Kali Linux.
+# v3.2.0: saved targets (targets.tsv, Super+Alt+i, `tgt <nombre>`, targetFav), user quick
+#       commands in the Target HUD (target-commands.conf), 6 new themes (Tokyo Night, Nord,
+#       Gruvbox, Dracula, Rosé Pine, Catppuccin Frappé) with matching wallpapers.
+# v3.1.1: resize floating windows (Super+Alt+arrows both ways, Super+right-drag), lock =
+#       plain i3lock + blurred wallpaper (ImageMagick, nothing compiled; betterlockscreen /
+#       i3lock-color removed), clean single rounded polybar (no overlapping blocks), eww
+#       dashboard (Super+F2, bundled pinned binary).
+# v3.1: picom animations + dual_kawase blur (picom >= 12; picom 10 → fade + blur; VM → fade),
+#       polybar layout refresh, desktop float/tile mode (Super+Shift+s).
 # v3.0: new look (pill polybar, rounded corners with picom 10/12+, thin borders, amethyst
 #       theme), 9 anime/landscape wallpapers (no generated text wallpaper any more), rofi
 #       wallpaper picker, calendar, cheat sheet (Super+F1), hide/restore windows,
@@ -25,7 +34,7 @@ cd "$SCRIPT_DIR"
 
 : "${USER:=$(id -un)}"
 export USER
-VERSION="3.0.0"
+VERSION="3.2.0"
 NICKNAME="${NICKNAME:-}"   # v3: ignored (wallpapers no longer carry text); kept so old commands still work
 SKIP_UPGRADE=0
 SKIP_FONTS=0
@@ -461,7 +470,7 @@ backup_existing() {
   info "Respaldando configs previas en $BACKUP_DIR"
   mkdir -p "$BACKUP_DIR"
   local d f
-  for d in bspwm sxhkd polybar picom kitty rofi dunst jgmenu; do
+  for d in bspwm sxhkd polybar picom kitty rofi dunst jgmenu eww betterlockscreen; do
     [ -d "$HOME/.config/$d" ] && cp -a "$HOME/.config/$d" "$BACKUP_DIR/" || true
   done
   for f in .zshrc .p10k.zsh .config/greenclip.toml .fehbg .config/gtk-3.0/settings.ini \
@@ -530,7 +539,7 @@ install_packages() {
     fonts-hack fonts-font-awesome fontconfig \
     zsh zsh-autosuggestions zsh-syntax-highlighting \
     fzf bat lsd git curl wget unzip ca-certificates \
-    i3lock scrot libnotify-bin pulseaudio-utils pavucontrol \
+    scrot bc libnotify-bin pulseaudio-utils pavucontrol \
     htop btop tmux papirus-icon-theme x11-xserver-utils xdg-utils procps
 
   # Pentest helpers used by the VPN switcher and Target HUD: always, also on Parrot Home
@@ -561,6 +570,145 @@ install_packages() {
   for p in gsimplecal brightnessctl fonts-noto-color-emoji; do pkg_avail "$p" && extra+=("$p"); done
   [ ${#extra[@]} -gt 0 ] && pkg_batch --no-recommends "${extra[@]}"
   ok "Paquetes base listos"
+}
+
+# ---------------------------------------------------------------- lock screen (i3lock)
+# 3.1.1: plain i3lock from the distro repos (Parrot 6/7, Kali) + a pre-rendered blurred
+# wallpaper made with ImageMagick (lock.sh --update). Nothing is compiled any more:
+# 3.1.0's betterlockscreen + i3lock-color failed to build on Parrot, pixelated the screen
+# and its fallback chain could start a second locker after unlocking.
+BLS_OLD_SHA256="e625a1466395b8593ae00c901258ff9cd32695ec93601f2659409f665dca9d3b"   # 3.1.0 pinned script
+
+install_lockscreen() {
+  info "Pantalla de bloqueo: i3lock + wallpaper desenfocado..."
+  # On Kali 3.1.0 installed betterlockscreen + i3lock-color (Conflicts: i3lock): apt swaps them.
+  if is_installed betterlockscreen || is_installed i3lock-color; then
+    info "Sustituyendo betterlockscreen / i3lock-color (v3.1.0) por i3lock"
+  fi
+  pkg_batch i3lock
+  # Pinned betterlockscreen script dropped by 3.1.0 in ~/.local/bin: remove it only if it is ours
+  local f="$HOME/.local/bin/betterlockscreen"
+  if [ -f "$f" ] && [ "$(sha256sum "$f" 2>/dev/null | awk '{print $1}')" = "$BLS_OLD_SHA256" ]; then
+    rm -f "$f" && info "Quitado ~/.local/bin/betterlockscreen (v3.1.0)"
+  fi
+  [ -x /usr/local/bin/i3lock-color ] && log "INFO /usr/local/bin/i3lock-color (3.1.0) ya no se usa; puedes borrarlo con sudo rm"
+  if command -v i3lock >/dev/null 2>&1; then
+    ok "i3lock listo (Super+Shift+x)"
+  else
+    warn "i3lock no se pudo instalar: el bloqueo probará xsecurelock o avisará (sudo apt install i3lock)"
+  fi
+  return 0
+}
+
+# Pre-render the blurred lock image (works without X: 1920x1080, rebuilt on the first lock
+# if the real screen differs). Runs after apply_theme so it uses the theme colors.
+prepare_lockscreen() {
+  local s="$HOME/.config/bspwm/scripts/lock.sh"
+  [ -x "$s" ] || return 0
+  if ! command -v convert >/dev/null 2>&1 && ! command -v magick >/dev/null 2>&1; then
+    warn "ImageMagick no está: el bloqueo será un fondo de color liso"
+    return 0
+  fi
+  info "Generando imagen de bloqueo (wallpaper desenfocado)..."
+  if timeout 120 "$s" --update >>"$LOG_FILE" 2>&1 && [ -s "${XDG_CACHE_HOME:-$HOME/.cache}/autobspwn/lock.png" ]; then
+    ok "Imagen de bloqueo lista (~/.cache/autobspwn/lock.png)"
+  else
+    warn "No se pudo generar la imagen de bloqueo; se intentará al bloquear (ver log)"
+  fi
+  return 0
+}
+
+# ---------------------------------------------------------------- eww dashboard
+# eww is in no Debian/Kali/Parrot repo and upstream publishes no binaries. The repo ships
+# bin/eww-x86_64: eww v0.6.0 (X11 only) built on Debian 12 (glibc 2.36 → runs on Parrot 6/7
+# and Kali), checked against bin/eww-x86_64.sha256. Fallback: build from the pinned source
+# with cargo if a new enough rustc (>= 1.76) is installed. Otherwise skip (Super+F2 says so).
+EWW_TAG="v0.6.0"
+EWW_SRC_SHA256="cef361946946c566b79f8ddc6208d1a3f16b4ff9961439a3f86935e1cfa174a1"
+
+eww_ok() { [ -x "$HOME/.local/bin/eww" ] && "$HOME/.local/bin/eww" --version >/dev/null 2>&1; }
+
+eww_runtime_deps() {
+  local p extra=()
+  p=$(pkg_first libgtk-3-0t64 libgtk-3-0) && extra+=("$p")
+  p=$(pkg_first libdbusmenu-gtk3-4) && extra+=("$p")
+  [ ${#extra[@]} -gt 0 ] && pkg_batch --no-recommends "${extra[@]}"
+  return 0
+}
+
+build_eww_cargo() {
+  command -v cargo >/dev/null 2>&1 && command -v rustc >/dev/null 2>&1 || return 1
+  local rv maj min
+  rv=$(rustc --version 2>/dev/null | awk '{print $2}')
+  maj=${rv%%.*}; min=${rv#*.}; min=${min%%.*}
+  if ! [[ $maj =~ ^[0-9]+$ && $min =~ ^[0-9]+$ ]] || [ "$maj" -lt 1 ] || { [ "$maj" -eq 1 ] && [ "$min" -lt 76 ]; }; then
+    warn "eww: rustc $rv es demasiado viejo para compilar eww (necesita >= 1.76)"
+    return 1
+  fi
+  info "Compilando eww $EWW_TAG con cargo (puede tardar 5-15 min)..."
+  pkg_batch --no-recommends pkg-config libgtk-3-dev libdbusmenu-gtk3-dev
+  local tmp tgz src
+  tmp=$(mktemp -d /tmp/autobspwn-eww.XXXXXX) || return 1
+  tgz="$tmp/eww.tar.gz"
+  if ! curl -fL --connect-timeout 20 --retry 2 -o "$tgz" \
+       "https://github.com/elkowar/eww/archive/refs/tags/$EWW_TAG.tar.gz" >>"$LOG_FILE" 2>&1 \
+     || [ "$(sha256sum "$tgz" | awk '{print $1}')" != "$EWW_SRC_SHA256" ]; then
+    warn "eww: no se pudo descargar/verificar el código fuente"; rm -rf "$tmp"; return 1
+  fi
+  tar xzf "$tgz" -C "$tmp" || { rm -rf "$tmp"; return 1; }
+  src="$tmp/eww-${EWW_TAG#v}"
+  if ( cd "$src" && cargo build --release --locked --no-default-features --features x11 ) >>"$LOG_FILE" 2>&1; then
+    install -m 0755 "$src/target/release/eww" "$HOME/.local/bin/eww" || true
+  fi
+  rm -rf "$tmp"
+  eww_ok
+}
+
+install_eww() {
+  info "Dashboard eww (Super+F2)..."
+  mkdir -p "$HOME/.local/bin"
+  if [ "$(uname -m)" != x86_64 ]; then
+    warn "eww: el binario incluido es x86_64; en $(uname -m) se intentará compilar"
+  fi
+  eww_runtime_deps
+  local bin="$SCRIPT_DIR/bin/eww-x86_64" sum="$SCRIPT_DIR/bin/eww-x86_64.sha256" want
+  if [ "$(uname -m)" = x86_64 ] && [ -f "$bin" ] && [ -f "$sum" ]; then
+    want=$(awk '{print $1; exit}' "$sum")
+    if [ "$(sha256sum "$bin" | awk '{print $1}')" = "$want" ]; then
+      install -m 0755 "$bin" "$HOME/.local/bin/eww" || true
+      if eww_ok; then
+        ok "eww instalado en ~/.local/bin ($("$HOME/.local/bin/eww" --version 2>/dev/null | head -n1), build $EWW_TAG)"
+        return 0
+      fi
+      log "WARN eww incluido no arranca: $("$HOME/.local/bin/eww" --version 2>&1 | head -n3 | tr '\n' ' ')"
+      rm -f "$HOME/.local/bin/eww"
+    else
+      warn "eww: checksum del binario incluido no coincide; no se instala"
+    fi
+  fi
+  if build_eww_cargo; then
+    ok "eww compilado e instalado en ~/.local/bin"
+    return 0
+  fi
+  warn "eww no disponible: el dashboard (Super+F2) mostrará un aviso. Polybar sigue siendo la barra principal"
+  return 0
+}
+
+# ---------------------------------------------------------------- picom profile
+# bspwmrc picks the profile at every login (picom can be upgraded later, e.g. Parrot 6 → 7);
+# here we check it once, tell the user and leave ~/.config/picom/active.conf pointing to it.
+setup_picom_profile() {
+  local sel="$HOME/.config/bspwm/scripts/picom-profile.sh" first
+  command -v picom >/dev/null 2>&1 || { warn "picom no instalado: sin bordes redondeados/animaciones"; return 0; }
+  [ -x "$sel" ] || return 0
+  first=$("$sel" 2>/dev/null | head -n1 || true)
+  if [ -n "$first" ] && [ -f "$first" ]; then
+    ln -sfn "$first" "$HOME/.config/picom/active.conf" 2>/dev/null || true
+    ok "picom: $("$sel" --explain 2>/dev/null || basename "$first")"
+  else
+    warn "picom: no se encontró el perfil ($first)"
+  fi
+  return 0
 }
 
 # ---------------------------------------------------------------- fonts / clipboard / shell
@@ -719,7 +867,8 @@ deploy_configs() {
   mkdir -p "$HOME/.config" "$HOME/.local/bin" "$HOME/.config/bspwm/walls" "$HOME/Pictures"
 
   local d
-  for d in bspwm sxhkd polybar picom kitty rofi dunst; do
+  for d in bspwm sxhkd polybar picom kitty rofi dunst eww; do
+    [ -d "$SCRIPT_DIR/config/$d" ] || continue
     mkdir -p "$HOME/.config/$d"
     cp -a "$SCRIPT_DIR/config/$d/." "$HOME/.config/$d/"
   done
@@ -728,7 +877,7 @@ deploy_configs() {
   cp -a "$SCRIPT_DIR/home/.p10k.zsh" "$HOME/.p10k.zsh"
 
   local s
-  for s in setFocus clearFocus polybar-theme extractHosts theme-sync autobspwn-notifyd; do
+  for s in setFocus clearFocus targetFav polybar-theme extractHosts theme-sync autobspwn-notifyd; do
     [ -f "$SCRIPT_DIR/scripts/$s" ] && install -m 0755 "$SCRIPT_DIR/scripts/$s" "$HOME/.local/bin/$s"
   done
 
@@ -740,6 +889,13 @@ deploy_configs() {
     mkdir -p "$HOME/.config/gtk-3.0"
     cp -a "$SCRIPT_DIR/config/gtk-3.0/settings.ini" "$HOME/.config/gtk-3.0/settings.ini"
   fi
+  # Target HUD (v3.2): saved targets + quick commands are the user's files — seed only if missing
+  local tpl
+  for tpl in targets.tsv target-commands.conf; do
+    if [ ! -e "$HOME/.config/bspwm/$tpl" ] && [ -f "$SCRIPT_DIR/config/bspwm/templates/$tpl" ]; then
+      cp "$SCRIPT_DIR/config/bspwm/templates/$tpl" "$HOME/.config/bspwm/$tpl" || true
+    fi
+  done
   # Pentest workspace: ~/vpn (*.ovpn / WireGuard *.conf) and ~/targets/<ip>/ (Target HUD)
   mkdir -p "$HOME/vpn" "$HOME/targets"
   chmod 700 "$HOME/vpn" 2>/dev/null || true
@@ -751,7 +907,7 @@ deploy_configs() {
     fi
   fi
 
-  find "$HOME/.config/bspwm" "$HOME/.config/polybar" -type f \( -name '*.sh' -o -name 'bspwmrc' \) -exec chmod +x {} +
+  find "$HOME/.config/bspwm" "$HOME/.config/polybar" "$HOME/.config/eww" -type f \( -name '*.sh' -o -name 'bspwmrc' \) -exec chmod +x {} + 2>/dev/null || true
   # libcolors.sh / lib.sh are sourced, keep them non-executable (still readable)
   [ -f "$HOME/.config/polybar/scripts/libcolors.sh" ] && chmod 644 "$HOME/.config/polybar/scripts/libcolors.sh"
   [ -f "$HOME/.config/bspwm/scripts/lib.sh" ] && chmod 644 "$HOME/.config/bspwm/scripts/lib.sh"
@@ -909,7 +1065,21 @@ verify_install() {
   else
     warn "Sin historial de portapapeles"
   fi
-  for b in yad jgmenu maim xprop openvpn wg-quick nmcli nmap nm-applet xclip; do
+  if command -v i3lock >/dev/null 2>&1; then
+    if [ -s "${XDG_CACHE_HOME:-$HOME/.cache}/autobspwn/lock.png" ]; then
+      ok "i3lock + imagen desenfocada (bloqueo)"
+    else
+      ok "i3lock (bloqueo; la imagen se genera al primer bloqueo)"
+    fi
+  else
+    warn "Sin bloqueador de pantalla (i3lock)"
+  fi
+  if eww_ok; then
+    ok "eww (dashboard Super+F2)"
+  else
+    warn "Opcional ausente: eww (dashboard Super+F2)"
+  fi
+  for b in yad jgmenu maim xprop openvpn wg-quick nmcli nmap nm-applet xclip jq; do
     command -v "$b" >/dev/null 2>&1 && ok "$b" || warn "Opcional ausente: $b"
   done
   local p
@@ -942,10 +1112,14 @@ BANNER
   install_nerd_font
   install_clipboard
   install_p10k
+  install_lockscreen
+  install_eww
   deploy_configs
+  setup_picom_profile
   desktop_coexistence
   migrate_v2
   apply_theme
+  prepare_lockscreen
   ensure_xsessions
   maybe_chsh
   install_tools
@@ -970,7 +1144,9 @@ BANNER
   echo "  7. Portapapeles: Super+c · Tools: Super+p · Capturas: Print / Super+a"
   echo "  8. Temas: Super+Shift+t (ciclar) · Super+Alt+t (menú) · theme-sync mocha"
   echo "  9. Calendario: clic en el reloj (o Super+Alt+c) · Scratchpad: Super+u"
-  [ "$TOOLS_MODE" = none ] && echo " 10. Tools de Parrot Security cuando quieras: ./Install.sh -y --skip-upgrade --tools basic"
+  echo " 10. Ventanas: Super+s flotante↔mosaico · Super+Shift+s escritorio flotante · Super+Alt+flechas redimensionar"
+  echo " 11. Dashboard: Super+F2 (Esc cierra) · Bloquear: Super+Shift+x"
+  [ "$TOOLS_MODE" = none ] && echo " 12. Tools de Parrot Security cuando quieras: ./Install.sh -y --skip-upgrade --tools basic"
   echo
 }
 

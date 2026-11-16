@@ -1,7 +1,7 @@
 # shellcheck shell=bash
-# AutoBSPWN v3.0.0 — shared theme colors for polybar scripts (source me; do not execute).
+# AutoBSPWN v3.2.0 — shared theme colors for polybar scripts (source me; do not execute).
 # Reads ~/.config/polybar/colors.ini (spaces around '=' are optional).
-# AB_PILL=1 (set in the module's exec line) = the module sits on a colored "pill"
+# AB_PILL=1 (set in the module's exec line) = the module sits on a colored accent island
 # (shade1..3): normal colors are swapped for on-shade / on-shade-dim so text stays readable.
 _polycolor_raw() {
   local key="$1" def="$2" file="${HOME}/.config/polybar/colors.ini" val=

@@ -1,0 +1,129 @@
+;; AutoBSPWN v3.2.0 — eww dashboard (Super+F2 / power button right-click)
+;; Layout inspired by adi1090x/widgets (dashboard); own code.
+;; Opened / closed by ~/.config/bspwm/scripts/dashboard.sh (the eww daemon only runs while
+;; the dashboard is open, so it costs nothing the rest of the time).
+;; Colors: colors.scss (written by theme-sync from the active theme).
+
+(defvar S "~/.config/eww/scripts/dash.sh")
+
+(defpoll user    :interval "3600s" "~/.config/eww/scripts/dash.sh user")
+(defpoll host    :interval "3600s" "~/.config/eww/scripts/dash.sh host")
+(defpoll kernel  :interval "3600s" "~/.config/eww/scripts/dash.sh kernel")
+(defpoll uptime  :interval "60s"   "~/.config/eww/scripts/dash.sh uptime")
+(defpoll hour    :interval "5s"    "date +%H")
+(defpoll minute  :interval "5s"    "date +%M")
+(defpoll dayname :interval "60s"   "date '+%A'")
+(defpoll fulldate :interval "60s"  "date '+%d %B %Y'")
+(defpoll vpnip   :interval "3s"    "~/.config/eww/scripts/dash.sh vpn")
+(defpoll target  :interval "3s"    "~/.config/eww/scripts/dash.sh target")
+(defpoll volume  :interval "2s"    "~/.config/eww/scripts/dash.sh volume")
+(defpoll bright  :interval "5s"    "~/.config/eww/scripts/dash.sh bright")
+
+;; ---------------------------------------------------------------- cards
+(defwidget profile []
+  (box :class "card profile" :orientation "v" :space-evenly false :valign "fill"
+    (label :class "avatar" :text "󰀉")
+    (label :class "name" :text user :limit-width 18)
+    (label :class "host" :text "@${host}" :limit-width 22)
+    (box :class "facts" :orientation "v" :space-evenly false
+      (label :class "fact" :halign "start" :text "󰅐  ${uptime}")
+      (label :class "fact" :halign "start" :limit-width 26 :text "󰌽  ${kernel}"))))
+
+(defwidget clock []
+  (box :class "card clock" :orientation "v" :space-evenly false
+    (box :class "time" :halign "center" :space-evenly false
+      (label :class "hour" :text hour)
+      (label :class "colon" :text ":")
+      (label :class "minute" :text minute))
+    (label :class "day" :text dayname)
+    (label :class "date" :text fulldate)))
+
+(defwidget cal []
+  (box :class "card cal"
+    (calendar :class "calendar" :show-week-numbers false)))
+
+(defwidget meter [icon value name]
+  (box :class "meter" :orientation "v" :space-evenly false
+    (box :class "ring-box" :halign "center" :width 78 :height 78
+      (circular-progress :class "ring" :value value :thickness 8 :start-at 75 :width 78 :height 78
+        (label :class "ring-icon" :text icon)))
+    (label :class "meter-val" :text "${round(value, 0)}%")
+    (label :class "meter-name" :text name)))
+
+(defwidget system []
+  (box :class "card system" :space-evenly true
+    (meter :icon "󰻠" :name "CPU"   :value {EWW_CPU.avg})
+    (meter :icon "󰍛" :name "RAM"   :value {EWW_RAM.used_mem_perc})
+    (meter :icon "󰋊" :name "Disco" :value {EWW_DISK["/"].used_perc})))
+
+(defwidget sliders []
+  (box :class "card sliders" :orientation "v" :space-evenly true
+    (box :class "slider" :space-evenly false
+      (label :class "slider-icon" :text "󰕾")
+      (scale :class "scale vol" :hexpand true :min 0 :max 101 :value {volume == "" ? 0 : volume}
+             :onchange "~/.config/eww/scripts/dash.sh setvol {}")
+      (label :class "slider-val" :text "${volume}%"))
+    (box :class "slider" :space-evenly false
+      (label :class "slider-icon" :text "󰃟")
+      (scale :class "scale bright" :hexpand true :min 1 :max 101 :active {bright != "n/a"}
+             :value {bright == "n/a" ? 100 : bright}
+             :onchange "~/.config/eww/scripts/dash.sh setbright {}")
+      (label :class "slider-val" :text {bright == "n/a" ? "n/a" : "${bright}%"}))))
+
+(defwidget pentest []
+  (box :class "card pentest" :orientation "v" :space-evenly true
+    (box :space-evenly false :class "pt-row"
+      (label :class "pt-icon vpn" :text "󰖂")
+      (label :class "pt-text" :halign "start" :xalign 0 :text vpnip))
+    (box :space-evenly false :class "pt-row"
+      (label :class "pt-icon target" :text "󰓾")
+      (label :class "pt-text" :halign "start" :xalign 0 :text target))))
+
+(defwidget app [icon cmd tip cls]
+  (button :class "app ${cls}" :tooltip tip :onclick "~/.config/eww/scripts/dash.sh run ${cmd}"
+    (label :text icon)))
+
+(defwidget apps []
+  (box :class "card apps" :space-evenly true
+    (app :icon "󰆍"   :cmd "terminal" :tip "Terminal (Super+Enter)" :cls "a1")
+    (app :icon "󰖟"    :cmd "browser"  :tip "Navegador (Super+Shift+f)" :cls "a2")
+    (app :icon "󰉋" :cmd "files"    :tip "Archivos (Super+e)" :cls "a3")
+    (app :icon "󱁤"  :cmd "tools"    :tip "Herramientas (Super+p)" :cls "a4")
+    (app :icon "󰓾" :cmd "target"   :tip "Target (Super+i)" :cls "a5")
+    (app :icon "󰖂"    :cmd "vpn"      :tip "VPN (Super+v)" :cls "a6")))
+
+(defwidget powerbtn [icon cmd tip cls]
+  (button :class "pbtn ${cls}" :tooltip tip :onclick "~/.config/eww/scripts/dash.sh ${cmd}"
+    (label :text icon)))
+
+(defwidget power []
+  (box :class "card power" :space-evenly true
+    (powerbtn :icon "󰌾"   :cmd "lock"     :tip "Bloquear"      :cls "lock")
+    (powerbtn :icon "󰍃" :cmd "logout"   :tip "Cerrar sesión" :cls "logout")
+    (powerbtn :icon "󰤄"  :cmd "suspend"  :tip "Suspender"     :cls "suspend")
+    (powerbtn :icon "󰜉" :cmd "reboot"   :tip "Reiniciar"     :cls "reboot")
+    (powerbtn :icon "󰐥"  :cmd "poweroff" :tip "Apagar"        :cls "shutdown")))
+
+;; ---------------------------------------------------------------- layout
+(defwidget dashboard []
+  (eventbox :onrightclick "~/.config/bspwm/scripts/dashboard.sh --close"
+    (box :class "dashboard" :orientation "h" :space-evenly false
+      (box :orientation "v" :space-evenly false :class "col"
+        (profile)
+        (pentest))
+      (box :orientation "v" :space-evenly false :class "col"
+        (clock)
+        (system)
+        (sliders))
+      (box :orientation "v" :space-evenly false :class "col"
+        (cal)
+        (apps)
+        (power)))))
+
+(defwindow dashboard
+  :monitor 0
+  :geometry (geometry :x "0%" :y "0%" :width "940px" :height "540px" :anchor "center")
+  :stacking "fg"
+  :wm-ignore true
+  :windowtype "dialog"
+  (dashboard))

@@ -1,4 +1,4 @@
-# AutoBSPWN theme: amethyst (default) — deep-purple pills on a neutral dark bar.
+# AutoBSPWN theme: Amethyst · por defecto — deep-purple accents on a dark floating bar.
 # Material Design "Deep Purple" tones; look inspired by r1vs3c/auto-bspwm (own values/keys).
 BG="#1b1b22"; BG_ALT="#2a2a36"; FG="#ececf4"; MUTED="#7a7a8c"
 ACCENT="#9575cd"; ACCENT2="#7e57c2"; URGENT="#ef5350"; SUCCESS="#81c784"; CRUST="#0f0f14"

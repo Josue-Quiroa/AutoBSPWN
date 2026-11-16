@@ -6,6 +6,6 @@ BORDER_FOCUSED="#cba6f7"; BORDER_NORMAL="#313244"; BORDER_ACTIVE="#89b4fa"; PRES
 K_CURSOR="#f5e0dc"; K_SEL_BG="#f5e0dc"; K_URL="#89b4fa"
 K_COLORS=("#45475a" "#f38ba8" "#a6e3a1" "#f9e2af" "#89b4fa" "#f5c2e7" "#94e2d5" "#bac2de"
           "#585b70" "#f38ba8" "#a6e3a1" "#f9e2af" "#89b4fa" "#f5c2e7" "#94e2d5" "#a6adc8")
-# v3 layout: polybar pill shades (shade1 = outer, shade3 = inner), text on them, wallpaper
+# v3 layout: polybar accent-island shades (shade1 = launcher/clock, shade2 = volume, shade3 = target), text on them, wallpaper
 SHADE1="#cba6f7"; SHADE2="#b4befe"; SHADE3="#89b4fa"; ON_SHADE="#11111b"; ON_SHADE_DIM="#45475a"
 WALL="sunset-station-sakura.jpg"

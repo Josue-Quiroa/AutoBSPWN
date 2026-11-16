@@ -1,0 +1,11 @@
+# AutoBSPWN theme: Catppuccin Frappé — official palette values; key names are AutoBSPWN own
+BG="#303446"; BG_ALT="#414559"; FG="#c6d0f5"; MUTED="#737994"
+ACCENT="#ca9ee6"; ACCENT2="#8caaee"; URGENT="#e78284"; SUCCESS="#a6d189"; CRUST="#232634"
+ROFI_BG_ALPHA="ee"
+BORDER_FOCUSED="#ca9ee6"; BORDER_NORMAL="#414559"; BORDER_ACTIVE="#8caaee"; PRESEL="#a6d189"
+K_CURSOR="#f2d5cf"; K_SEL_BG="#f2d5cf"; K_URL="#8caaee"
+K_COLORS=("#51576d" "#e78284" "#a6d189" "#e5c890" "#8caaee" "#f4b8e4" "#81c8be" "#b5bfe2"
+          "#626880" "#e78284" "#a6d189" "#e5c890" "#8caaee" "#f4b8e4" "#81c8be" "#a5adce")
+# polybar accent shades (shade1/2/3) + text on them, wallpaper
+SHADE1="#ca9ee6"; SHADE2="#babbf1"; SHADE3="#8caaee"; ON_SHADE="#232634"; ON_SHADE_DIM="#51576d"
+WALL="mystic-forest-titan.jpg"

@@ -1,0 +1,11 @@
+# AutoBSPWN theme: Gruvbox dark (morhetz/gruvbox) — official palette values; key names are AutoBSPWN own
+BG="#282828"; BG_ALT="#3c3836"; FG="#ebdbb2"; MUTED="#928374"
+ACCENT="#fe8019"; ACCENT2="#fabd2f"; URGENT="#fb4934"; SUCCESS="#b8bb26"; CRUST="#1d2021"
+ROFI_BG_ALPHA="f2"
+BORDER_FOCUSED="#fe8019"; BORDER_NORMAL="#3c3836"; BORDER_ACTIVE="#fabd2f"; PRESEL="#b8bb26"
+K_CURSOR="#ebdbb2"; K_SEL_BG="#ebdbb2"; K_URL="#83a598"
+K_COLORS=("#282828" "#cc241d" "#98971a" "#d79921" "#458588" "#b16286" "#689d6a" "#a89984"
+          "#928374" "#fb4934" "#b8bb26" "#fabd2f" "#83a598" "#d3869b" "#8ec07c" "#ebdbb2")
+# polybar accent shades (shade1/2/3) + text on them, wallpaper
+SHADE1="#fe8019"; SHADE2="#fabd2f"; SHADE3="#8ec07c"; ON_SHADE="#1d2021"; ON_SHADE_DIM="#504945"
+WALL="pixel-city-gruvbox.png"

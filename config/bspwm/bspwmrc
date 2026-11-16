@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN bspwmrc v3.0.0 (gaps / thin borders / docked bar inspired by r1vs3c/auto-bspwm)
+# AutoBSPWN bspwmrc v3.2.0 (gaps / thin borders / docked bar inspired by r1vs3c/auto-bspwm)
 export PATH="$HOME/.local/bin:$PATH"
 export _JAVA_AWT_WM_NONREPARENTING=1
 
@@ -61,9 +61,26 @@ bspc config remove_disabled_monitors true
 bspc config remove_unplugged_monitors true
 bspc config merge_overlapping_monitors true
 
+# Mouse (floating or tiled): Super + left-drag moves · Super + right-drag resizes from the
+# nearest corner · Super + middle-drag resizes one side. Keyboard: Super+Alt+arrows
+# (floating: ←/→ narrower/wider, ↑/↓ shorter/taller) · Super+Alt+Shift+arrows shrinks.
+# sxhkd only binds a bare "~button3" (desktop menu, passed through), never Super+button,
+# so it can't swallow these pointer actions.
+bspc config pointer_modifier mod4
+bspc config pointer_action1 move
+bspc config pointer_action2 resize_side
+bspc config pointer_action3 resize_corner
+
+# Desktop float mode (Super+Shift+s): new windows on a "float" desktop open floating.
+# float-mode.sh is bspwm's external_rules_command and keeps its state in ~/.config/bspwm/.float-mode
+if [ -x "$HOME/.config/bspwm/scripts/float-mode.sh" ]; then
+  bspc config external_rules_command "$HOME/.config/bspwm/scripts/float-mode.sh"
+  "$HOME/.config/bspwm/scripts/float-mode.sh" --prune
+fi
+
 # Theme colors: amethyst defaults, then the active theme-sync theme (Super+Shift+t)
 BORDER_NORMAL="#2a2a36"; BORDER_ACTIVE="#5e35b1"; BORDER_FOCUSED="#7e57c2"; PRESEL="#9575cd"
-_theme=$(tr -d '[:space:]' <"$HOME/.config/polybar/.current-theme" 2>/dev/null || true)
+_theme=$(tr -d '[:space:]' 2>/dev/null <"$HOME/.config/polybar/.current-theme" || true)
 [ -n "$_theme" ] || _theme=amethyst
 if [ -n "$_theme" ] && [ -f "$HOME/.config/bspwm/themes/$_theme.theme" ]; then
   # shellcheck source=/dev/null
@@ -106,10 +123,11 @@ elif [ -f "$WALL_DEFAULT" ] && command -v feh >/dev/null 2>&1; then
   feh --bg-fill "$WALL_DEFAULT" &
 fi
 
-# picom: rounded corners everywhere (also in VMs: xrender draws them since picom 9).
-#   picom 10/11 (Parrot 6)       → picom.conf / picom-vm.conf        (legacy rule syntax)
-#   picom >= 12 (Parrot 7, Kali) → picom-rules.conf / picom-rules-vm.conf ("rules:")
-#   VM → xrender profile; physical → glx, falling back to xrender if glx fails.
+# picom: profile chosen by scripts/picom-profile.sh (same logic Install.sh reports):
+#   picom >= 12 (Parrot 7, Kali) → picom-rules.conf     animations + blur  (glx)
+#   picom 10/11 (Parrot 6)       → picom.conf           fade + blur, no animations (glx)
+#   VM                           → picom[-rules]-vm.conf xrender, fade only
+#   Each candidate is tried in order (glx failing → VM profile → plain xrender).
 start_picom() {
   command -v picom >/dev/null 2>&1 || return 0
   pgrep -u "$(id -u)" -x picom >/dev/null 2>&1 && return 0
@@ -118,25 +136,17 @@ start_picom() {
   for c in xfwm4 marco compiz kwin_x11 mutter compton; do
     pgrep -u "$(id -u)" -x "$c" >/dev/null 2>&1 && return 0
   done
-  local dir="$HOME/.config/picom" major prefix=picom
-  major=$(picom --version 2>/dev/null | sed -n 's/^v\{0,1\}\([0-9][0-9]*\).*/\1/p' | head -n1)
-  # unknown (git builds print "vgit-…") → assume recent
-  if [ -z "$major" ] || [ "$major" -ge 12 ]; then prefix=picom-rules; fi
-  local is_vm=0 virt
-  if command -v systemd-detect-virt >/dev/null 2>&1; then
-    virt=$(systemd-detect-virt --vm 2>/dev/null || true)
-    [ -n "$virt" ] && [ "$virt" != none ] && is_vm=1
+  local sel="$HOME/.config/bspwm/scripts/picom-profile.sh" conf
+  local -a confs=()
+  if [ -x "$sel" ]; then
+    mapfile -t confs < <("$sel" 2>/dev/null)
   fi
-  if [ "$is_vm" -eq 0 ] && [ -r /sys/class/dmi/id/product_name ] \
-     && grep -qiE 'VirtualBox|VMware|KVM|QEMU|Virtual Machine|Hyper-V|Xen|bochs' /sys/class/dmi/id/product_name 2>/dev/null; then
-    is_vm=1
-  fi
-  if [ "$is_vm" -eq 0 ] && picom --config "$dir/$prefix.conf" -b 2>/dev/null; then
-    return 0
-  fi
-  picom --config "$dir/$prefix-vm.conf" -b 2>/dev/null \
-    || picom --backend xrender -b 2>/dev/null \
-    || true
+  [ ${#confs[@]} -gt 0 ] || confs=("$HOME/.config/picom/picom-vm.conf")
+  for conf in "${confs[@]}"; do
+    [ -f "$conf" ] || continue
+    picom --config "$conf" -b 2>/dev/null && return 0
+  done
+  picom --backend xrender -b 2>/dev/null || true
 }
 start_picom
 

@@ -1,5 +1,5 @@
-<!-- autobspwn-atajos v3.0.0 — generado con: ~/.config/bspwm/scripts/keys-help.sh --markdown -->
-# AutoBSPWN 3.0.0 — Atajos y comandos
+<!-- autobspwn-atajos v3.2.0 — generado con: ~/.config/bspwm/scripts/keys-help.sh --markdown -->
+# AutoBSPWN 3.2.0 — Atajos y comandos
 
 **Super** = tecla Windows. Esta misma lista sale en pantalla con **Super + F1** o **Super + /**
 (puedes escribir para filtrar y Enter ejecuta la acción). Se genera leyendo
@@ -9,7 +9,15 @@ encima, aparece solo.
 Notas:
 - `{a,b,c}` significa “una de estas teclas”, p. ej. `Super + {1-9,0}` = Super+1 … Super+0.
 - Las flechas y `h j k l` (estilo vim) hacen lo mismo.
-- **Ratón**: Super + clic izquierdo arrastra una ventana, Super + clic derecho la redimensiona.
+- **Ratón**: Super + arrastre izquierdo mueve una ventana, Super + arrastre derecho la
+  redimensiona desde la esquina más cercana y Super + arrastre central desde un lado.
+- **Redimensionar con teclado** (flotantes y mosaico): `Super + Alt + ←/→` más estrecha/ancha,
+  `Super + Alt + ↑/↓` más baja/alta (en mosaico mueve el borde); `Super + Alt + Shift + flecha` encoge.
+- **Dashboard**: `Super + F2` abre el panel eww (perfil, reloj, calendario, CPU/RAM/disco,
+  volumen y brillo, accesos, VPN/target y apagado); `Esc` o `Super + F2` lo cierran.
+- **Mosaico ↔ flotante**: `Super + s` cambia sólo la ventana activa; `Super + Shift + s` pone
+  **todo el escritorio** en modo flotante (las ventanas nuevas abren flotando y las acomodas
+  con el ratón) y al volver a pulsarlo regresan al mosaico automático. El modo se ve en la barra.
 - **Polybar**: clic en el reloj = calendario · clic en el icono de la izquierda = apps
   (derecho: info del sistema) · rueda sobre el icono de paleta = cambiar tema
   (clic derecho: wallpapers) · clic en target/VPN/IP = copiar/menú.
@@ -35,6 +43,7 @@ Notas:
 | `` Super + i `` | Target HUD: menú del target (nmap, ssh, web, notas…) |
 | `` Super + Shift + i `` | Fijar target (setFocus IP nombre) |
 | `` Super + Shift + c `` | Quitar target (clearFocus) |
+| `` Super + Alt + i `` | Targets guardados (favoritos): elegir uno lo hace el target activo |
 | `` Super + v `` | VPN / lab switcher |
 | `` Super + Shift + v `` | Reconectar la última VPN |
 | `` Super + p `` | Launcher de tools de pentest |
@@ -46,7 +55,7 @@ Notas:
 |---|---|
 | `` Super + w `` | Selector de wallpapers con vista previa |
 | `` Super + Shift + w `` | Wallpaper aleatorio |
-| `` Super + Shift + t `` | Siguiente tema (amethyst → mocha → macchiato → hacker) |
+| `` Super + Shift + t `` | Siguiente tema (amethyst → mocha → macchiato → frappé → tokyonight → nord → gruvbox → dracula → rosé pine → hacker) |
 | `` Super + Alt + t `` | Selector de temas |
 | `` Super + b `` | Mostrar / ocultar la barra |
 | `` Super + Shift + p `` | Reiniciar la barra (polybar) |
@@ -59,9 +68,10 @@ Notas:
 | `` Super + q `` | Cerrar ventana |
 | `` Super + Shift + q `` | Matar ventana (kill) |
 | `` Super + t `` | Modo mosaico (tiled) |
-| `` Super + s `` | Modo flotante |
-| `` Super + Shift + Space `` | Alternar flotante / mosaico |
-| `` Super + Shift + s `` | Modo pseudo-tiled |
+| `` Super + s `` | Ventana actual: flotante ↔ mosaico (alternar) |
+| `` Super + Shift + Space `` | Alternar flotante / mosaico (igual que Super+s) |
+| `` Super + Shift + s `` | Modo flotante de TODO el escritorio (acomodar libre con el ratón) ↔ mosaico automático |
+| `` Super + Alt + s `` | Modo pseudo-tiled |
 | `` Super + f `` | Pantalla completa |
 | `` Super + m `` | Alternar layout mosaico / monocle |
 | `` Super + g `` | Intercambiar con la ventana más grande |
@@ -78,8 +88,9 @@ Notas:
 | `` Super + {h,j,k,l} `` | Mover el foco (vim) |
 | `` Super + Shift + {Left,Down,Up,Right} `` | Mover ventana flotante / intercambiar ventana en mosaico (flechas) |
 | `` Super + Shift + {h,j,k,l} `` | Mover ventana flotante / intercambiar ventana en mosaico (vim) |
-| `` Super + Alt + {Left,Down,Up,Right} `` | Redimensionar inteligente (crece hacia la flecha o encoge) |
-| `` Super + Alt + {h,j,k,l} `` | Redimensionar inteligente (vim) |
+| `` Super + Alt + {Left,Down,Up,Right} `` | Redimensionar (flotante: ←/→ más estrecha/ancha, ↑/↓ más baja/alta; mosaico: mueve el borde) |
+| `` Super + Alt + {h,j,k,l} `` | Redimensionar (vim) |
+| `` Super + Alt + Shift + {Left,Down,Up,Right} `` | Encoger la ventana (flotante o mosaico) |
 | `` Super + Alt + {p,b,coma,punto} `` | Foco al nodo padre / hermano / primer hijo / segundo hijo |
 | `` Super + ` `` | Volver a la ventana anterior |
 | `` Super + {o,Shift + o} `` | Ventana más antigua / más reciente del historial |
@@ -121,10 +132,12 @@ Notas:
 |---|---|
 | `` Super + F1 `` | Hoja de atajos (esta lista) |
 | `` Super + / `` | Hoja de atajos |
+| `` Super + F2 `` | Dashboard eww: perfil, reloj, sistema, sliders, accesos y apagado (otra vez = cerrar) |
+| `` Esc (con el dashboard abierto) `` | Cerrar el dashboard (Esc sigue llegando a la ventana activa) |
 | `` Super + Alt + c `` | Calendario |
 | `` Super + Shift + m `` | Menú del escritorio (también clic derecho sobre el fondo) |
 | `` Click derecho (escritorio) `` | Menú contextual al hacer clic derecho sobre el fondo |
-| `` Super + Shift + x `` | Bloquear pantalla |
+| `` Super + Shift + x `` | Bloquear pantalla (i3lock con el wallpaper desenfocado) |
 | `` Ctrl + Alt + l `` | Bloquear pantalla (estilo r1vs3c) |
 | `` Super + Shift + e `` | Menú de apagado |
 | `` Super + Esc `` | Recargar atajos (sxhkd) |
@@ -150,8 +163,11 @@ Notas:
 
 | Acción | Resultado |
 |---|---|
-| `` Super + clic izquierdo `` (arrastrar) | Mover ventana (la vuelve flotante) |
-| `` Super + clic derecho `` (arrastrar) | Redimensionar ventana |
+| `` Super + clic izquierdo `` (arrastrar) | Mover ventana flotante / intercambiar en mosaico |
+| `` Super + clic derecho `` (arrastrar) | Redimensionar desde la esquina más cercana (flotante o mosaico) |
+| `` Super + clic central `` (arrastrar) | Redimensionar sólo un lado |
+| Clic derecho en ⏻ de la barra | Abrir el dashboard eww |
+| Clic en el icono 󰕴/󰖲 de la barra | Alternar modo mosaico / flotante del escritorio (= Super+Shift+s) |
 | Clic derecho sobre el fondo | Menú del escritorio (jgmenu) |
 | Clic en el reloj | Calendario (yad) |
 
@@ -163,10 +179,12 @@ Notas:
 | `clearFocus` | Quita el target (el historial se conserva en Super+i) |
 | `focusip` | Muestra el target actual |
 | `tgt` | `cd ~/targets/<ip del target>` (crea `nmap/ loot/ exploits/`) |
+| `tgt <nombre\|ip>` | Activa un target guardado o reciente y entra en su carpeta (Tab autocompleta) |
+| `targetFav add <ip> [nombre] [etiqueta]` · `rm` · `list` · `use` | Gestiona los targets guardados (`~/.config/bspwm/targets.tsv`) |
 | `mkt <nombre>` | Crea y entra en `~/Machines/<nombre>/{nmap,content,exploits,scripts,loot}` |
 | `ports archivo.nmap` | Lista los puertos abiertos separados por coma (para `nmap -p`) |
 | `extractHosts [archivo]` | Extrae las IPs únicas de un archivo o de la entrada estándar |
-| `theme-sync <tema>` / `theme <tema>` | Cambia el tema: `amethyst`, `mocha`, `macchiato`, `hacker` |
+| `theme-sync <tema>` / `theme <tema>` | Cambia el tema: `amethyst`, `mocha`, `macchiato`, `frappe`, `tokyonight`, `nord`, `gruvbox`, `dracula`, `rosepine`, `hacker` |
 | `theme-sync --next` · `--menu` · `--list` · `--current` | Ciclar, selector, listar, ver el actual |
 | `target` | Menú del Target HUD (= Super+i) |
 | `vpnmenu` | Menú de VPN (= Super+v) |

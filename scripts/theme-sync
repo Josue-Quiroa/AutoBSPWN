@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.0.0 — theme-sync: one theme for polybar, bspwm, kitty, rofi, dunst, lock & wallpaper
-#   theme-sync <tema>        aplicar (amethyst | mocha | macchiato | hacker | los tuyos)
+# AutoBSPWN v3.2.0 — theme-sync: one theme for polybar, bspwm, kitty, rofi, dunst, eww, lock & wallpaper
+#   theme-sync <tema>        aplicar (amethyst | mocha | macchiato | frappe | tokyonight | nord |
+#                            gruvbox | dracula | rosepine | hacker | los tuyos)
 #   theme-sync --next|--prev ciclar (Super+Shift+t)
 #   theme-sync --menu        selector rofi (Super+Alt+t)
 #   theme-sync --apply       reaplicar el tema actual (tras reinstalar)
@@ -18,6 +19,8 @@ BW="$HOME/.config/bspwm"
 STATE="$PB/.current-theme"
 WALLS="$BW/walls"
 RELOAD=1
+# Stock themes in the order Super+Shift+t cycles them (amethyst = default)
+STOCK_THEMES="amethyst mocha macchiato frappe tokyonight nord gruvbox dracula rosepine hacker"
 
 say() { echo "$*"; }
 note() { notify-send -a AutoBSPWN AutoBSPWN "$*" 2>/dev/null || true; }
@@ -28,11 +31,19 @@ themes() {
     [ -f "$f" ] || continue
     t=$(basename "$f" .ini)
     [ -f "$BW/themes/$t.theme" ] && printf '%s\n' "$t"
-  done | sort -u | awk '
-    # Fixed order for the stock themes, then the user ones
-    $0=="amethyst"{a[1]=$0;next} $0=="mocha"{a[2]=$0;next} $0=="macchiato"{a[3]=$0;next} $0=="hacker"{a[4]=$0;next}
-    {extra[++n]=$0}
-    END{for(i=1;i<=4;i++) if(a[i]!="") print a[i]; for(i=1;i<=n;i++) print extra[i]}'
+  done | sort -u | awk -v stock="$STOCK_THEMES" '
+    # Fixed order for the stock themes, then the user ones (alphabetical)
+    BEGIN { n = split(stock, order, " "); for (i = 1; i <= n; i++) pos[order[i]] = i }
+    ($0 in pos) { a[pos[$0]] = $0; next }
+    { extra[++m] = $0 }
+    END { for (i = 1; i <= n; i++) if (a[i] != "") print a[i]; for (i = 1; i <= m; i++) print extra[i] }'
+}
+
+# "nombre — descripción" for the rofi selector (first line of the .theme file)
+theme_desc() {
+  local d
+  d=$(head -n1 "$BW/themes/$1.theme" 2>/dev/null | sed -n 's/^# AutoBSPWN theme: *//p' | sed 's/ — .*//; s/ (.*//')
+  printf '%s\n' "${d:-$1}"
 }
 
 current() {
@@ -183,6 +194,65 @@ JG
   mv -f "$f.tmp" "$f"
 }
 
+# eww dashboard (Super+F2): ~/.config/eww/colors.scss from the theme.
+# Only touches a colors.scss created by AutoBSPWN (first line "// AutoBSPWN").
+write_eww() {
+  local d="$HOME/.config/eww" f
+  f="$d/colors.scss"
+  [ -d "$d" ] || return 0
+  if [ -f "$f" ] && ! head -n1 "$f" | grep -q 'AutoBSPWN'; then return 0; fi
+  cat >"$f.tmp" <<SCSS || return 0
+// AutoBSPWN — eww dashboard colors (${THEME}). theme-sync rewrites this file.
+\$bg: ${BG};
+\$bg-alt: ${BG_ALT};
+\$fg: ${FG};
+\$muted: ${MUTED};
+\$accent: ${ACCENT};
+\$accent2: ${ACCENT2};
+\$urgent: ${URGENT};
+\$success: ${SUCCESS};
+\$crust: ${CRUST};
+\$red: ${K_COLORS[1]};
+\$green: ${K_COLORS[2]};
+\$yellow: ${K_COLORS[3]};
+\$blue: ${K_COLORS[4]};
+\$magenta: ${K_COLORS[5]};
+\$cyan: ${K_COLORS[6]};
+SCSS
+  mv -f "$f.tmp" "$f"
+  # Live reload only if the dashboard daemon is up (it normally runs only while open)
+  if command -v eww >/dev/null 2>&1 && eww -c "$d" ping >/dev/null 2>&1; then
+    eww -c "$d" reload >/dev/null 2>&1 || true
+  fi
+}
+
+# v3.1.0 wrote ~/.config/betterlockscreen/betterlockscreenrc; 3.1.1 dropped betterlockscreen.
+drop_betterlockscreen_rc() {
+  local f="$HOME/.config/betterlockscreen/betterlockscreenrc"
+  if [ -f "$f" ] && grep -q 'autobspwn-managed' "$f"; then
+    rm -f "$f"
+    rmdir "$HOME/.config/betterlockscreen" 2>/dev/null || true
+  fi
+  return 0
+}
+
+# Polybar islands (v3.1) read colors.island / island-fg: give older or hand-made
+# themes sensible values so the bar never references an undefined color.
+backfill_polybar_colors() {
+  local f="$PB/colors.ini" key val
+  [ -f "$f" ] || return 0
+  _ini() { awk -F= -v k="$1" '{gsub(/^[ \t]+|[ \t]+$/, "", $1); gsub(/^[ \t]+|[ \t]+$/, "", $2)} $1 == k {print $2; exit}' "$f"; }
+  for key in island island-alt island-fg; do
+    [ -n "$(_ini "$key")" ] && continue
+    case "$key" in
+      island)     val=$(_ini surface0); val=${val:-$(_ini background-alt)} ;;
+      island-alt) val=$(_ini surface1); val=${val:-$(_ini background-alt)} ;;
+      island-fg)  val=$(_ini foreground) ;;
+    esac
+    printf '%s=%s\n' "$key" "${val:-#2a2a36}" >>"$f"
+  done
+}
+
 theme_wall() {
   local e
   [ -f "$BW/.no-theme-wall" ] && return 1
@@ -222,6 +292,8 @@ reload_all() {
     feh --no-fehbg --bg-fill "$w" 2>/dev/null
     write_fehbg "$w"
   fi
+  # Lock screen image follows the wallpaper + theme colors (cached blur, background job)
+  [ -x "$BW/scripts/lock.sh" ] && (setsid -f "$BW/scripts/lock.sh" --update >/dev/null 2>&1 &)
   if pgrep -u "$(id -u)" -x polybar >/dev/null 2>&1 || [ -n "${AUTOBSPWN_FORCE_BAR:-}" ]; then
     if [ -x "$PB/launch.sh" ]; then
       (setsid -f "$PB/launch.sh" >/dev/null 2>&1 &)
@@ -251,11 +323,14 @@ apply() {
   # shellcheck source=/dev/null
   . "$app"
   cp -f "$ini" "$PB/colors.ini"
+  backfill_polybar_colors
   printf '%s\n' "$THEME" >"$STATE"
   write_kitty
   write_rofi
   write_dunst
   write_jgmenu
+  write_eww
+  drop_betterlockscreen_rc
   if [ "$RELOAD" -eq 1 ]; then
     reload_all
     note "Tema: $THEME"
@@ -279,7 +354,7 @@ done
 set -- "${args[@]+"${args[@]}"}"
 
 case "${1:-}" in
-  ""|-h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  ""|-h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
   --list)    themes ;;
   --current) current ;;
   --next)    apply "$(step 1)" ;;
@@ -288,9 +363,12 @@ case "${1:-}" in
   --menu)
     command -v rofi >/dev/null 2>&1 || { say "rofi no está instalado"; exit 1; }
     cur=$(current)
-    pick=$(themes | awk -v c="$cur" '{ print ($0==c ? "● " : "  ") $0 }' \
-      | rofi -dmenu -i -p Tema -mesg "Actual: $cur · polybar, bspwm, kitty, rofi, dunst y wallpaper") || exit 0
-    pick=${pick#● }; pick=${pick#  }
+    pick=$(themes | while IFS= read -r t; do
+             if [ "$t" = "$cur" ]; then m="●"; else m=" "; fi
+             printf '%s %-12s %s\n' "$m" "$t" "$(theme_desc "$t")"
+           done | rofi -dmenu -i -p Tema \
+             -mesg "Actual: $cur · polybar, bordes, kitty, rofi, dunst, dashboard, bloqueo y wallpaper") || exit 0
+    pick=$(printf '%s\n' "${pick#?}" | awk '{print $1}')
     [ -n "$pick" ] && apply "$pick"
     ;;
   -*) say "Opción desconocida: $1"; exit 1 ;;

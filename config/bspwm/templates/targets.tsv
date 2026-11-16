@@ -1,0 +1,5 @@
+# AutoBSPWN — targets guardados (favoritos). Una línea por target, separada por TABULADORES:
+#   ip<TAB>nombre<TAB>etiqueta/nota opcional
+# Se gestiona desde Super+i → «Targets guardados», con `targetFav` o `tgt <nombre>` en zsh.
+# Ejemplo (las líneas con # se ignoran):
+# 10.10.11.42	certified.htb	HTB · AD

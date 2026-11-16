@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.0.0 — clipboard history (rofi)
+# AutoBSPWN v3.2.0 — clipboard history (rofi)
 # Backends, first found wins (only ONE daemon is ever started):
 #   1. greenclip  static binary from GitHub (Install.sh → ~/.local/bin), native rofi mode
 #   2. copyq      Debian/Parrot/Kali package, used when greenclip can't be downloaded

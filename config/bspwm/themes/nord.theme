@@ -1,0 +1,11 @@
+# AutoBSPWN theme: Nord (arcticicestudio/nord) — official palette values; key names are AutoBSPWN own
+BG="#2e3440"; BG_ALT="#3b4252"; FG="#eceff4"; MUTED="#616e88"
+ACCENT="#88c0d0"; ACCENT2="#81a1c1"; URGENT="#bf616a"; SUCCESS="#a3be8c"; CRUST="#242933"
+ROFI_BG_ALPHA="ee"
+BORDER_FOCUSED="#88c0d0"; BORDER_NORMAL="#3b4252"; BORDER_ACTIVE="#5e81ac"; PRESEL="#a3be8c"
+K_CURSOR="#d8dee9"; K_SEL_BG="#88c0d0"; K_URL="#88c0d0"
+K_COLORS=("#3b4252" "#bf616a" "#a3be8c" "#ebcb8b" "#81a1c1" "#b48ead" "#88c0d0" "#e5e9f0"
+          "#4c566a" "#bf616a" "#a3be8c" "#ebcb8b" "#81a1c1" "#b48ead" "#8fbcbb" "#eceff4")
+# polybar accent shades (shade1/2/3) + text on them, wallpaper
+SHADE1="#88c0d0"; SHADE2="#81a1c1"; SHADE3="#5e81ac"; ON_SHADE="#2e3440"; ON_SHADE_DIM="#3b4252"
+WALL="nordic-lofoten-fjord.jpg"

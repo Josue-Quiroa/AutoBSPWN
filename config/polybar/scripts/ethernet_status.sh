@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.0.0 — local IP for polybar (left click copies it)
+# AutoBSPWN v3.2.0 — local IP for polybar (left click copies it)
 # shellcheck source=/dev/null
 . "$(dirname "$0")/libcolors.sh"
 copy(){ printf '%s' "$1" | xclip -selection clipboard 2>/dev/null || printf '%s' "$1" | xsel -ib 2>/dev/null || true; }

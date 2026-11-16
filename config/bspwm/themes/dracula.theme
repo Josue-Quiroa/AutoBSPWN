@@ -1,0 +1,11 @@
+# AutoBSPWN theme: Dracula (draculatheme.com) — official palette values; key names are AutoBSPWN own
+BG="#282a36"; BG_ALT="#44475a"; FG="#f8f8f2"; MUTED="#6272a4"
+ACCENT="#bd93f9"; ACCENT2="#ff79c6"; URGENT="#ff5555"; SUCCESS="#50fa7b"; CRUST="#191a21"
+ROFI_BG_ALPHA="ee"
+BORDER_FOCUSED="#bd93f9"; BORDER_NORMAL="#44475a"; BORDER_ACTIVE="#ff79c6"; PRESEL="#50fa7b"
+K_CURSOR="#f8f8f2"; K_SEL_BG="#bd93f9"; K_URL="#8be9fd"
+K_COLORS=("#21222c" "#ff5555" "#50fa7b" "#f1fa8c" "#bd93f9" "#ff79c6" "#8be9fd" "#f8f8f2"
+          "#6272a4" "#ff6e6e" "#69ff94" "#ffffa5" "#d6acff" "#ff92df" "#a4ffff" "#ffffff")
+# polybar accent shades (shade1/2/3) + text on them, wallpaper
+SHADE1="#bd93f9"; SHADE2="#ff79c6"; SHADE3="#8be9fd"; ON_SHADE="#191a21"; ON_SHADE_DIM="#44475a"
+WALL="sakura-city-reflection.jpg"

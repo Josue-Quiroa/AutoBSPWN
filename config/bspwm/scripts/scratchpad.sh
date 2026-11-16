@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.0.0 — toggle the scratchpad terminal (Super+u)
+# AutoBSPWN v3.2.0 — toggle the scratchpad terminal (Super+u)
 # Toggle the scratchterm window. xdotool IDs are decimal; bspc wants 0xhex.
 
 node_id() {

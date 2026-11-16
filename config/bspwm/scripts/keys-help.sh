@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.0.0 — cheat sheet built live from ~/.config/sxhkd/sxhkdrc (Super+F1 / Super+/).
+# AutoBSPWN v3.2.0 — cheat sheet built live from ~/.config/sxhkd/sxhkdrc (Super+F1 / Super+/).
 # sxhkdrc convention:  "## Categoría"  ·  "# descripción" right above each chord.
 #   keys-help.sh              rofi list (type to filter; Enter runs the action)
 #   keys-help.sh --text       plain text      keys-help.sh --markdown   tables (ATAJOS.md)
@@ -19,6 +19,7 @@ parse() {
       gsub(/grave/, "`", k);     gsub(/slash/, "/", k);      gsub(/minus/, "-", k)
       gsub(/equal/, "=", k);     gsub(/comma/, "coma", k);   gsub(/period/, "punto", k)
       gsub(/~button3/, "Click derecho (escritorio)", k)
+      gsub(/~Esc/, "Esc (con el dashboard abierto)", k)
       return k
     }
     /^## /           { cat = substr($0, 4); next }

@@ -1,4 +1,4 @@
-# AutoBSPWN v3.0.0 shared helpers for the rofi menus (source me; do not execute).
+# AutoBSPWN v3.2.0 shared helpers for the rofi menus (source me; do not execute).
 # shellcheck shell=bash disable=SC2034
 
 AB_TARGETS="${AUTOBSPWN_TARGETS:-$HOME/targets}"

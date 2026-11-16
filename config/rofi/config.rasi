@@ -1,4 +1,4 @@
-/* AutoBSPWN rofi v3.0.0 — compact centered launcher with a colored search bar
+/* AutoBSPWN rofi v3.2.0 — compact centered launcher with a colored search bar
    (look inspired by r1vs3c/auto-bspwm; own theme). Colors: colors.rasi (theme-sync). */
 configuration {
   modi: "drun,run,window,ssh";

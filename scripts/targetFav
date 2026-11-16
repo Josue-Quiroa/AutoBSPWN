@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# AutoBSPWN v3.2.0 — targetFav: saved targets (favorites) for the Target HUD.
+#   targetFav list                     ip<TAB>nombre<TAB>etiqueta (favoritos)
+#   targetFav add <ip> [nombre] [etiqueta...]   añade o actualiza (dedup por IP)
+#   targetFav rm <ip|nombre>           quita un favorito
+#   targetFav has <ip>                 exit 0 si la IP está en favoritos
+#   targetFav resolve <ip|nombre>      "ip<TAB>nombre" buscando en favoritos y en el historial
+#   targetFav use <ip|nombre>          resolve + setFocus (lo hace el target activo)
+#   targetFav init                     crea ~/.config/bspwm/targets.tsv con un ejemplo comentado
+# File: ~/.config/bspwm/targets.tsv (tab-separated, # = comment). History stays in
+# ~/.config/bspwm/focus_history (written by setFocus). One ACTIVE target at a time (setFocus).
+set -u
+FAV="${AUTOBSPWN_TARGETS_FILE:-$HOME/.config/bspwm/targets.tsv}"
+HIST="$HOME/.config/bspwm/focus_history"
+TPL="$HOME/.config/bspwm/templates/targets.tsv"
+
+die() { echo "targetFav: $*" >&2; exit 1; }
+
+valid_ip() {
+  [[ $1 =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || return 1
+  local IFS=. o
+  for o in $1; do [ "$o" -le 255 ] 2>/dev/null || return 1; done
+  return 0
+}
+# Same rule the Target HUD uses for /etc/hosts names
+valid_name() { [[ $1 =~ ^[A-Za-z0-9._-]+$ ]]; }
+# Tag: free text, no tabs/newlines, max 40 chars
+clean_tag() { printf '%s' "$*" | tr '\t\r\n' '   ' | cut -c1-40; }
+
+init() {
+  [ -f "$FAV" ] && return 0
+  mkdir -p "$(dirname "$FAV")" || return 1
+  if [ -f "$TPL" ]; then
+    cp "$TPL" "$FAV"
+  else
+    printf '# AutoBSPWN — targets guardados: ip<TAB>nombre<TAB>etiqueta opcional\n# 10.10.11.42\tcertified.htb\tHTB · AD\n' >"$FAV"
+  fi
+}
+
+list() { [ -f "$FAV" ] && awk -F'\t' '!/^[[:space:]]*#/ && NF && $1!="" {print $1 "\t" $2 "\t" $3}' "$FAV"; return 0; }
+
+add() {
+  local ip=${1:-} name=${2:-} tag
+  [ -n "$ip" ] || die "uso: targetFav add <ip> [nombre] [etiqueta]"
+  valid_ip "$ip" || die "IP inválida: $ip"
+  [ -z "$name" ] || valid_name "$name" || die "Nombre inválido (letras, números, . _ -): $name"
+  shift 2 2>/dev/null || shift $#
+  tag=$(clean_tag "$*")
+  init || die "no puedo crear $FAV"
+  # Keep comments + other entries in place, replace this IP's line (or append it)
+  awk -F'\t' -v ip="$ip" -v line="$ip	$name	$tag" '
+    !/^[[:space:]]*#/ && $1==ip { if (!done) print line; done=1; next }
+    { print }
+    END { if (!done) print line }' "$FAV" >"$FAV.tmp" && mv -f "$FAV.tmp" "$FAV"
+  echo "Favorito: $ip${name:+ $name}${tag:+ [$tag]}"
+}
+
+rm_fav() {
+  local key=${1:-} n
+  [ -n "$key" ] || die "uso: targetFav rm <ip|nombre>"
+  [ -f "$FAV" ] || die "no hay favoritos"
+  n=$(awk -F'\t' -v k="$key" '!/^[[:space:]]*#/ && ($1==k || $2==k) {c++} END{print c+0}' "$FAV")
+  [ "$n" -gt 0 ] || die "no está en favoritos: $key"
+  awk -F'\t' -v k="$key" '/^[[:space:]]*#/ || !($1==k || $2==k)' "$FAV" >"$FAV.tmp" && mv -f "$FAV.tmp" "$FAV"
+  echo "Quitado de favoritos: $key"
+}
+
+# favorites first, then history; match by IP or by name (case-insensitive name match)
+resolve() {
+  local key=${1:-}
+  [ -n "$key" ] || return 1
+  { list; [ -f "$HIST" ] && awk -F'\t' 'NF && $1!="" {print $1 "\t" $2 "\t"}' "$HIST"; } \
+    | awk -F'\t' -v k="$key" 'BEGIN{lk=tolower(k)} $1==k || tolower($2)==lk {print $1 "\t" $2; f=1; exit} END{exit !f}'
+}
+
+setfocus_bin() {
+  if [ -x "$HOME/.local/bin/setFocus" ]; then echo "$HOME/.local/bin/setFocus"; else command -v setFocus; fi
+}
+
+use() {
+  local key=${1:-} r ip name sf
+  [ -n "$key" ] || die "uso: targetFav use <ip|nombre>"
+  if r=$(resolve "$key"); then
+    ip=${r%%$'\t'*}; name=${r#*$'\t'}
+  elif valid_ip "$key"; then
+    ip=$key; name=${2:-}
+  else
+    die "no encuentro «$key» en favoritos ni en el historial"
+  fi
+  sf=$(setfocus_bin) || die "setFocus no está instalado"
+  "$sf" "$ip" ${name:+"$name"}
+}
+
+case "${1:-}" in
+  list)    list ;;
+  add)     shift; add "$@" ;;
+  rm|del|remove) shift; rm_fav "${1:-}" ;;
+  has)     shift; list | awk -F'\t' -v ip="${1:-}" '$1==ip{f=1} END{exit !f}' ;;
+  resolve) shift; resolve "${1:-}" ;;
+  use)     shift; use "$@" ;;
+  init)    init ;;
+  ""|-h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *)       die "orden desconocida: $1 (targetFav --help)" ;;
+esac

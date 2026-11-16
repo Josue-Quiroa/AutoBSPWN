@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.0.0
+# AutoBSPWN v3.2.0
 # Launch polybar on every monitor. Tray only on the first bar.
 # Kali (polybar 3.7+) uses internal/tray; Parrot/Debian 12 (3.6) uses tray-position.
 
@@ -42,10 +42,24 @@ if pgrep -u "$(id -u)" -x polybar >/dev/null 2>&1; then
   sleep 0.1
 fi
 
+# Narrow monitors (< 1366 px, e.g. 1024x768 / 1280x800 VMs) get compact labels
+# (time only, icon-only VPN-off / float mode, target IP without the name) so the
+# right side never runs off the bar. Force with AUTOBSPWN_BAR_COMPACT=0|1.
+mon_width() {
+  local w
+  w=$(polybar -m 2>/dev/null | awk -F'[ :x]+' -v m="$1" '$1==m || m=="" {print $2; exit}')
+  [[ $w =~ ^[0-9]+$ ]] || w=$(xrandr --current 2>/dev/null | sed -n 's/.*current \([0-9]*\) x.*/\1/p' | head -n1)
+  printf '%s\n' "${w:-1920}"
+}
+
 launch_bar() {
-  local mon=$1 tray_mod=$2 tray_pos=$3 bar=main
+  local mon=$1 tray_mod=$2 tray_pos=$3 bar=main compact=${AUTOBSPWN_BAR_COMPACT:-}
   [ "$tray_mod" = tray ] && bar=main-tray
-  MONITOR="$mon" POLYBAR_TRAY_POS="$tray_pos" polybar -q -r "$bar" -c "$CFG" &
+  if [ -z "$compact" ]; then
+    compact=0
+    [ "$(mon_width "$mon")" -lt 1366 ] 2>/dev/null && compact=1
+  fi
+  AB_BAR_COMPACT="$compact" MONITOR="$mon" POLYBAR_TRAY_POS="$tray_pos" polybar -q -r "$bar" -c "$CFG" &
 }
 
 first=1

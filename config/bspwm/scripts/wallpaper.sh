@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.0.0 — wallpaper picker with previews (Super+w)
+# AutoBSPWN v3.2.0 — wallpaper picker with previews (Super+w)
 #   wallpaper.sh            rofi grid with thumbnails of ~/.config/bspwm/walls/*
 #   wallpaper.sh --random   random wallpaper (Super+Shift+w)
 #   wallpaper.sh FILE       set FILE
@@ -13,7 +13,11 @@ mkdir -p "$DIR" "$THUMBS"
 
 set_wall() {
   ab_has feh || { ab_notify "feh no está instalado"; return 1; }
-  feh --bg-fill "$1" && ab_notify "Wallpaper: $(basename "$1")"
+  feh --bg-fill "$1" || return 1
+  ab_notify "Wallpaper: $(basename "$1")"
+  # Lock screen (blurred copy for i3lock) follows the wallpaper; rendered in the background
+  [ -x "$HOME/.config/bspwm/scripts/lock.sh" ] && (setsid -f "$HOME/.config/bspwm/scripts/lock.sh" --update "$1" >/dev/null 2>&1 &)
+  return 0
 }
 
 mapfile -t files < <(find -L "$DIR" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) 2>/dev/null | sort)

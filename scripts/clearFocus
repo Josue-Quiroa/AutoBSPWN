@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.0.0 — clear the focus target (history is kept for the Target HUD)
+# AutoBSPWN v3.2.0 — clear the focus target (history is kept for the Target HUD)
 rm -f "$HOME/.config/bspwm/focus_ip" "$HOME/.config/bspwm/focus_name"
 notify-send -a AutoBSPWN AutoBSPWN "Focus limpiado" 2>/dev/null || true
 echo "Focus limpiado"

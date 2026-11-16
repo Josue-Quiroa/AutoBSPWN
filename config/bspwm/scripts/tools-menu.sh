@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.0.0 — quick launcher for pentest tools (rofi)
+# AutoBSPWN v3.2.0 — quick launcher for pentest tools (rofi)
 #   tools-menu.sh               rofi menu (Super+p)
 #   tools-menu.sh --run NAME    launch one tool directly (e.g. --run burpsuite → Super+Shift+b)
 # Only tools that are installed are listed. Java GUIs get _JAVA_AWT_WM_NONREPARENTING=1
