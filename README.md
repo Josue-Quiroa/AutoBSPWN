@@ -7,7 +7,7 @@ Barra limpia y redondeada · dashboard eww · animaciones y blur · bloqueo dese
 
 <br>
 
-![Versión](https://img.shields.io/badge/versión-3.3.0-B39DDB?style=for-the-badge)
+![Versión](https://img.shields.io/badge/versión-3.3.1-B39DDB?style=for-the-badge)
 ![Parrot](https://img.shields.io/badge/Parrot_OS-Home_%7C_Security-16B1C6?style=for-the-badge&logo=parrotsecurity&logoColor=white)
 ![Kali](https://img.shields.io/badge/Kali-compatible-557C94?style=for-the-badge&logo=kalilinux&logoColor=white)
 ![BSPWM](https://img.shields.io/badge/WM-bspwm-8A5CF6?style=for-the-badge)
@@ -25,7 +25,7 @@ Barra limpia y redondeada · dashboard eww · animaciones y blur · bloqueo dese
 ## Contenido
 
 - [Instalación](#instalación) · [Actualizar](#actualizar)
-- [Qué incluye](#qué-incluye) · [Novedades 3.3.0](#novedades-330)
+- [Qué incluye](#qué-incluye) · [Novedades 3.3.1](#novedades-331) · [Novedades 3.3.0](#novedades-330)
 - [Atajos esenciales](#atajos-esenciales)
 - [Flujo de pentest](#flujo-de-pentest)
 - [Herramientas de Parrot Security](#herramientas-de-parrot-security-opcional)
@@ -100,7 +100,19 @@ Hace `git pull --ff-only` en tu clon de AutoBSPWN y luego `./Install.sh --update
 | 🪟 **Ventanas** | Mosaico automático o **modo flotante** por escritorio; flotantes se mueven **y redimensionan** (ratón y teclado) |
 | 🔎 **Rofi** | Menús compactos con iconos y esquinas redondeadas |
 | 🎯 **Pentest** | Target HUD con targets guardados, comandos rápidos, **scope guard**, recon `tscan`, **loot ledger** y timeline por target; VPN/lab switcher, portapapeles, launcher de tools |
-| ⚡ **Extras** | Calendario, hoja de atajos, capturas, menú de escritorio, scratchpad |
+| ⚡ **Extras** | Calendario, hoja de atajos, capturas, menú de escritorio, scratchpad con hasta 4 terminales tmux (Alt+1…4) |
+
+### Novedades 3.3.1
+
+<details open>
+<summary>Scratchpad con varias terminales (Super+u)</summary>
+
+- El scratchpad de **Super+u** ahora guarda **hasta 4 terminales** tmux, como pestañas: la barra de abajo muestra las abiertas (número + nombre, la activa resaltada) y el contador `n/4`, igual que Super+Tab pero dentro del scratchpad.
+- Teclas sin prefijo: **Alt+1…4** ir a la terminal · **Alt+←/→** o **Alt+h/l** anterior/siguiente · **Alt+n** nueva (con 4 abiertas avisa «máx 4» y no crea más) · **Alt+w** cerrar la actual. `Ctrl+b` sigue funcionando.
+- El límite es real: un hook de tmux cierra cualquier 5.ª ventana, venga de Alt+n, `Ctrl+b c` o `tmux new-window`.
+- Usa su propio config `~/.config/autobspwn/scratch.tmux.conf` en un servidor tmux aparte (`tmux -L autobspwn-scratch`), así que tu `~/.tmux.conf` y tus otras sesiones no se tocan. Si lo editas, `autobspwn-update` respeta tus cambios. Los colores siguen al tema de kitty.
+
+</details>
 
 ### Novedades 3.3.0
 

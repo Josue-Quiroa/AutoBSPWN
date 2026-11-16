@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.3.0 - BSPWM desktop installer
+# AutoBSPWN v3.3.1 - BSPWM desktop installer
 # Target: Parrot OS Home Edition (Parrot 6 "lory" / Debian 12 MATE and Parrot 7 "echo" /
 #         Debian 13 KDE). Also Parrot Security and Kali Linux.
+# v3.3.1: Super+u scratchpad with up to 4 tmux terminals as tabs (~/.config/autobspwn/scratch.tmux.conf)
 # v3.3.0: --update / autobspwn-update (config-only sync, keeps your edited files), scope guard
 #       (scope.conf, scope-check, nmap/ffuf wrappers, red target in the bar), tscan recon
 #       pipeline, loot ledger + per-target timeline, bats tests + GitHub Actions CI.
@@ -37,7 +38,7 @@ cd "$SCRIPT_DIR"
 
 : "${USER:=$(id -un)}"
 export USER
-VERSION="3.3.0"
+VERSION="3.3.1"
 NICKNAME="${NICKNAME:-}"   # v3: ignored (wallpapers no longer carry text); kept so old commands still work
 SKIP_UPGRADE=0
 SKIP_FONTS=0
@@ -491,7 +492,7 @@ backup_existing() {
   done
   for f in .zshrc .p10k.zsh .config/greenclip.toml .fehbg .config/gtk-3.0/settings.ini \
            .local/share/dbus-1/services/org.freedesktop.Notifications.service .config/autostart/picom.desktop \
-           .config/autobspwn/manifest.tsv; do
+           .config/autobspwn/manifest.tsv .config/autobspwn/scratch.tmux.conf; do
     if [ -f "$HOME/$f" ]; then
       mkdir -p "$BACKUP_DIR/$(dirname "$f")"
       cp -a "$HOME/$f" "$BACKUP_DIR/$f"
@@ -1002,6 +1003,9 @@ deploy_configs() {
   install_scope_wrappers
   # autobspwn-update finds the clone through this file
   mkdir -p "$HOME/.config/autobspwn"
+  # Super+u scratchpad: its own tmux config (tabs, Alt keys, max 4); your edits are kept
+  [ -f "$SCRIPT_DIR/config/autobspwn/scratch.tmux.conf" ] && \
+    deploy_file "$SCRIPT_DIR/config/autobspwn/scratch.tmux.conf" "$HOME/.config/autobspwn/scratch.tmux.conf"
   printf '%s\n' "$SCRIPT_DIR" >"$HOME/.config/autobspwn/repo"
 
   # First install only (keeps the user's own settings)

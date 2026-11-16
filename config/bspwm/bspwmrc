@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN bspwmrc v3.3.0 (gaps / thin borders / docked bar inspired by r1vs3c/auto-bspwm)
+# AutoBSPWN bspwmrc v3.3.1 (gaps / thin borders / docked bar inspired by r1vs3c/auto-bspwm)
 export PATH="$HOME/.local/bin:$PATH"
 export _JAVA_AWT_WM_NONREPARENTING=1
 
@@ -185,10 +185,8 @@ if command -v VBoxClient-all >/dev/null 2>&1; then
 fi
 
 # Scratchpad terminal (hidden); Super+u toggles it
-if command -v xdotool >/dev/null 2>&1 && ! xdotool search --class scratchterm >/dev/null 2>&1; then
-  if command -v kitty >/dev/null 2>&1 && command -v tmux >/dev/null 2>&1; then
-    kitty --class scratchterm -e tmux new -A -s scratch &
-  elif command -v kitty >/dev/null 2>&1; then
-    kitty --class scratchterm &
-  fi
+# (same launcher as Super+u: own tmux server + ~/.config/autobspwn/scratch.tmux.conf)
+if command -v xdotool >/dev/null 2>&1 && ! xdotool search --class scratchterm >/dev/null 2>&1 \
+   && command -v kitty >/dev/null 2>&1 && [ -x "$HOME/.config/bspwm/scripts/scratchpad.sh" ]; then
+  "$HOME/.config/bspwm/scripts/scratchpad.sh" --spawn
 fi

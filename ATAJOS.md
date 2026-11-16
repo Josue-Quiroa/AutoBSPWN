@@ -1,5 +1,5 @@
-<!-- autobspwn-atajos v3.3.0 — generado con: ~/.config/bspwm/scripts/keys-help.sh --markdown -->
-# AutoBSPWN 3.3.0 — Atajos y comandos
+<!-- autobspwn-atajos v3.3.1 — generado con: ~/.config/bspwm/scripts/keys-help.sh --markdown -->
+# AutoBSPWN 3.3.1 — Atajos y comandos
 
 **Super** = tecla Windows. Esta misma lista sale en pantalla con **Super + F1** o **Super + /**
 (puedes escribir para filtrar y Enter ejecuta la acción). Se genera leyendo
@@ -28,7 +28,7 @@ Notas:
 |---|---|
 | `` Super + Enter `` | Terminal (kitty) |
 | `` Super + Shift + Enter `` | Terminal flotante |
-| `` Super + u `` | Scratchpad: terminal desplegable con tmux |
+| `` Super + u `` | Scratchpad: terminal desplegable con tmux (hasta 4 terminales como pestañas; ver abajo) |
 | `` Super + d `` | Lanzador de aplicaciones (rofi) |
 | `` Super + r `` | Ejecutar un comando (rofi) |
 | `` Super + Tab `` | Lista de ventanas abiertas (rofi) |
@@ -198,6 +198,19 @@ Notas:
 | `~/.config/bspwm/scripts/keys-help.sh --text` | Esta lista en texto plano |
 | `ll` · `tree` · `cat` | `lsd` / `bat` con colores |
 | `p10k configure` | Personalizar el prompt |
+
+## Scratchpad (Super + u) — hasta 4 terminales
+
+Dentro del scratchpad hay una sesión tmux propia (`~/.config/autobspwn/scratch.tmux.conf`, servidor aparte: no usa ni toca tu `~/.tmux.conf`). Abajo se ven las terminales abiertas como pestañas (número + nombre, la activa resaltada) y el contador `n/4`.
+
+| Atajo | Acción |
+|---|---|
+| `` Alt + 1 `` … `` Alt + 4 `` | Ir a la terminal 1–4 |
+| `` Alt + ← `` / `` Alt + → `` | Terminal anterior / siguiente |
+| `` Alt + h `` / `` Alt + l `` | Terminal anterior / siguiente |
+| `` Alt + n `` | Nueva terminal (en el mismo directorio); si ya hay 4 muestra «máx 4 terminales» y no crea otra |
+| `` Alt + w `` | Cerrar la terminal actual (la última se cierra con `exit`) |
+| `` Ctrl + b `` … | tmux normal (`Ctrl+b c` también respeta el máximo de 4) |
 
 ## kitty (terminal)
 
