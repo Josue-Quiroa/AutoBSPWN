@@ -15,7 +15,7 @@
 . "$(dirname "$(readlink -f "$0")")/lib.sh"
 
 INBOX="${AUTOBSPWN_NOTES:-$HOME/notes}/inbox.md"
-NOTE_RE='^- \[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}\] '
+NOTE_RE='^- [[][0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9][]] '   # no backslashes or {n}: safe for awk -v and old mawk
 
 ip=$(ab_focus_ip 2>/dev/null || true)
 ab_is_ipv4 "$ip" || ip=''
@@ -59,10 +59,12 @@ parse_nums() {
 delete_notes() {
   local tmp n
   [ $# -gt 0 ] || return 0
+  local lines
+  # file line numbers of the chosen notes (grep -E finds the notes; awk only counts lines, so the
+  # result never depends on the awk flavour: mawk / gawk / busybox)
+  lines=$(grep -nE "$NOTE_RE" "$F" | cut -d: -f1 | awk -v del=" $* " 'index(del, " " NR " ") { printf " %s", $0 }')
   tmp=$(mktemp "$F.XXXXXX") || return 1
-  awk -v re="$NOTE_RE" -v del=" $* " '
-    $0 ~ re { k++; if (index(del, " " k " ")) next }
-    { print }' "$F" >"$tmp" && chmod 600 "$tmp" && mv -f "$tmp" "$F" || { rm -f "$tmp"; return 1; }
+  awk -v del="$lines " '!index(del, " " NR " ")' "$F" >"$tmp" && chmod 600 "$tmp" && mv -f "$tmp" "$F" || { rm -f "$tmp"; return 1; }
   n=$#
   [ -n "$ip" ] && ab_timeline "$ip" nota "$n nota(s) borrada(s) de notes.md"
   echo "[+] $n nota(s) borrada(s) de $dest"
