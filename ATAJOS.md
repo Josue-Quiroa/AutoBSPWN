@@ -1,5 +1,5 @@
-<!-- autobspwn-atajos v3.4.2 — generado con: ~/.config/bspwm/scripts/keys-help.sh --markdown -->
-# AutoBSPWN 3.4.2 — Atajos y comandos
+<!-- autobspwn-atajos v3.4.3 — generado con: ~/.config/bspwm/scripts/keys-help.sh --markdown -->
+# AutoBSPWN 3.4.3 — Atajos y comandos
 
 **Super** = tecla Windows. Esta misma lista sale en pantalla con **Super + F1** o **Super + /**
 (puedes escribir para filtrar y Enter ejecuta la acción). Se genera leyendo

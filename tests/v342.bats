@@ -306,7 +306,7 @@ BS
   grep -q 'bspc wm -a Virtual-2 1920x1080+1920+0' "$STUBS/calls.log"
   grep -q 'bspc desktop 0xAA -m Virtual-1' "$STUBS/calls.log"
   grep -q 'bspc monitor ghost -r' "$STUBS/calls.log"
-  [ "$(grep -n 'desktop 0xAA -m' "$STUBS/calls.log" | cut -d: -f1)" -lt "$(grep -n 'monitor ghost -r' "$STUBS/calls.log" | cut -d: -f1)" ]
+  [ "$(grep -n 'desktop 0xAA -m' "$STUBS/calls.log" | head -n1 | cut -d: -f1)" -lt "$(grep -n 'monitor ghost -r' "$STUBS/calls.log" | head -n1 | cut -d: -f1)" ]
 }
 
 @test "watch signature changes with geometry only (same names, new resolution / position)" {

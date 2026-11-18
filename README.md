@@ -7,7 +7,7 @@ Barra limpia y redondeada · dashboard eww · animaciones y blur · bloqueo dese
 
 <br>
 
-![Versión](https://img.shields.io/badge/versión-3.4.2-B39DDB?style=for-the-badge)
+![Versión](https://img.shields.io/badge/versión-3.4.3-B39DDB?style=for-the-badge)
 ![Parrot](https://img.shields.io/badge/Parrot_OS-Home_%7C_Security-16B1C6?style=for-the-badge&logo=parrotsecurity&logoColor=white)
 ![Kali](https://img.shields.io/badge/Kali-compatible-557C94?style=for-the-badge&logo=kalilinux&logoColor=white)
 ![BSPWM](https://img.shields.io/badge/WM-bspwm-8A5CF6?style=for-the-badge)
@@ -25,7 +25,7 @@ Barra limpia y redondeada · dashboard eww · animaciones y blur · bloqueo dese
 ## Contenido
 
 - [Instalación](#instalación) · [Actualizar](#actualizar)
-- [Qué incluye](#qué-incluye) · [Novedades 3.4.2](#novedades-342) · [Novedades 3.4.1](#novedades-341) · [Novedades 3.4.0](#novedades-340) · [Novedades 3.3.1](#novedades-331) · [Novedades 3.3.0](#novedades-330)
+- [Qué incluye](#qué-incluye) · [Novedades 3.4.3](#novedades-343) · [Novedades 3.4.2](#novedades-342) · [Novedades 3.4.1](#novedades-341) · [Novedades 3.4.0](#novedades-340) · [Novedades 3.3.1](#novedades-331) · [Novedades 3.3.0](#novedades-330)
 - [Atajos esenciales](#atajos-esenciales)
 - [Flujo de pentest](#flujo-de-pentest)
 - [Herramientas de Parrot Security](#herramientas-de-parrot-security-opcional)
@@ -102,6 +102,25 @@ Hace `git pull --ff-only` en tu clon de AutoBSPWN y luego `./Install.sh --update
 | 🔎 **Rofi** | Menús compactos con iconos y esquinas redondeadas |
 | 🎯 **Pentest** | Target HUD con targets guardados, comandos rápidos, **scope guard**, recon `tscan`, **loot ledger** y timeline por target; VPN/lab switcher, portapapeles, launcher de tools |
 | ⚡ **Extras** | Calendario, hoja de atajos, capturas, menú de escritorio, scratchpad con hasta 4 terminales tmux (Alt+1…4) |
+
+### Novedades 3.4.3
+
+Arreglo de multi-monitor en VMware al **quitar** el doble monitor o **salir de pantalla completa**
+(antes las ventanas quedaban apretadas en una franja a la izquierda y la derecha en negro o con el
+wallpaper sin tiling):
+
+- Sólo cuentan las salidas **conectadas con un modo real** dentro de la pantalla: VMware deja a
+  veces `Virtual-2` «disconnected» pero encendida con su geometría vieja, «connected» con 0x0 o
+  fuera de la pantalla ya reducida; v3.4.2 la volvía a añadir a bspwm. Ahora se trata como
+  desconectada.
+- 2 → 1 monitor: los escritorios (y sus ventanas) del monitor que desaparece pasan antes al que
+  queda (`bspc desktop -m`) y luego se quita (`bspc monitor -r`); no se pierde ninguna ventana.
+- Mismo monitor con otra resolución: si bspwm no la toma, se aplica `bspc monitor -g WxH+X+Y`;
+  se comprueba hasta 3 veces (1 s entre intentos) que bspwm coincide con xrandr.
+- Después se reparten los escritorios, se repinta el wallpaper al tamaño nuevo y se relanza
+  polybar. El vigilante mira cada 2 s y aplica cuando la pantalla lleva 1 s estable (VMware
+  manda varios cambios seguidos). `monitors.sh --status` muestra lo que ve xrandr, lo que tiene
+  bspwm y las diferencias.
 
 ### Novedades 3.4.2
 

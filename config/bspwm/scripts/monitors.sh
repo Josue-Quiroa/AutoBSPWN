@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.4.2 — HiDPI + multi-monitor (automatic; bspwmrc runs it)
+# AutoBSPWN v3.4.3 — HiDPI + multi-monitor (automatic; bspwmrc runs it)
 #   monitors.sh [--apply]        new outputs on / unplugged off (xrandr, see policy), bspwm monitors
 #                                synced with xrandr, Xft.dpi + rofi DPI, desktops split across the
 #                                monitors, wallpaper repainted, one polybar per monitor
 #   monitors.sh --apply --no-bar   same without relaunching polybar / wallpaper (bspwmrc does it)
-#   monitors.sh --watch          follow plug / unplug / resolution changes (one instance)
+#   monitors.sh --watch          follow plug / unplug / resolution changes (one instance; polls
+#                                every 2 s, applies once the layout is stable for 1 s)
 #   monitors.sh --dpi [OUTPUT]   DPI for that output (default: primary)   --list   outputs
 #   monitors.sh --status         xrandr policy, outputs and bspwm monitors (diagnostics)
 # DPI: physical size from xrandr → 96/120/144/168/192 (VMs report 0 mm → 96, or 192 when the
@@ -150,7 +151,26 @@ apply_desktops() {
 }
 
 # active xrandr outputs: name <TAB> WxH+X+Y   (connected or not: what is really lit)
-xr_active() { outputs | awk -F'\t' '$3 != "-" { print $1 "\t" $3 }'; }
+# root (screen) size: "W H" or nothing
+root_size() {
+  xrandr --current 2>/dev/null | sed -n 's/^Screen [0-9]*:.*current \([0-9]*\) x \([0-9]*\).*/\1 \2/p' | head -n1
+}
+
+# active xrandr outputs that bspwm should have: name <TAB> WxH+X+Y
+# v3.4.3: only CONNECTED outputs with a real mode. VMware, when you leave the 2-monitor / full
+# screen mode, may leave Virtual-2 "disconnected" but still lit with its old CRTC, "connected"
+# with 0x0, or lit outside the (now smaller) screen: those are gone for bspwm (it already
+# removes unplugged monitors itself; re-adding them left the right half black).
+xr_active() {
+  local rs rw=0 rh=0
+  rs=$(root_size); [ -n "$rs" ] && read -r rw rh <<<"$rs"
+  outputs | awk -F'\t' -v rw="${rw:-0}" -v rh="${rh:-0}" '
+    $2 == 1 && $3 != "-" {
+      g = $3; split(g, a, /[x+]/)          # W H X Y
+      if (a[1] + 0 < 64 || a[2] + 0 < 64) next
+      if (rw > 0 && (a[3] + a[1] > rw || a[4] + a[2] > rh)) next
+      print $1 "\t" g }'
+}
 
 # bspwm's monitors: name <TAB> WxH+X+Y   (from the first "rectangle" of each monitor's tree)
 bspwm_rects() {
@@ -207,6 +227,21 @@ sync_bspwm() {
   return "$changed"
 }
 
+# sync until bspwm agrees with xrandr (bspwm may still be digesting VMware's last change):
+# up to 3 rounds, 1 s apart. 0 = something was changed.
+sync_bspwm_settled() {
+  local i rc=1 xf bf
+  for i in 1 2 3; do
+    sync_bspwm && rc=0
+    xf=$(mktemp) && bf=$(mktemp) || return "$rc"
+    xr_active >"$xf"; bspwm_rects >"$bf"
+    if [ -z "$(geometry_plan "$xf" "$bf")" ]; then rm -f "$xf" "$bf"; return "$rc"; fi
+    rm -f "$xf" "$bf"
+    [ "${AB_MON_NOSLEEP:-0}" = 1 ] || sleep 1
+  done
+  return "$rc"
+}
+
 repaint_wallpaper() {
   local def="$HOME/.config/bspwm/walls/cherry-field-mountains.jpg"
   if [ -f "$HOME/.fehbg" ]; then sh "$HOME/.fehbg" >/dev/null 2>&1 || true   # feh fills every monitor
@@ -218,7 +253,7 @@ apply() {
   local bar=1
   [ "${1:-}" = --no-bar ] && bar=0
   apply_xrandr
-  sync_bspwm || true
+  sync_bspwm_settled || true
   apply_dpi >/dev/null
   apply_desktops
   [ "$bar" = 1 ] || return 0
@@ -257,17 +292,17 @@ watch() {
   local last now fails=0
   last=$(signature)
   while :; do
-    sleep 3
+    sleep 2
     pgrep -u "$(id -u)" -x bspwm >/dev/null 2>&1 || exit 0
     if ! now=$(signature) || [ -z "$now" ]; then
       fails=$((fails + 1)); (( fails > 5 )) && exit 0; continue
     fi
     fails=0
     [ "$now" = "$last" ] && continue
-    # plugging / VM resizing is noisy (vmware-user may resize 2-3 times): wait until it is
-    # stable for one second (max ~6 s), then apply once
+    # plugging / VM resizing is noisy (vmware-user sends 2-4 changes in a row when you leave
+    # full screen / 2-monitor mode): wait until it is stable for 1 s (max ~8 s), apply once
     local prev=$now i
-    for i in 1 2 3 4 5 6; do
+    for i in 1 2 3 4 5 6 7 8; do
       sleep 1; now=$(signature)
       [ "$now" = "$prev" ] && break
       prev=$now
@@ -286,6 +321,6 @@ case "${1:---apply}" in
   --list)     outputs ;;
   --status)   status ;;
   --plan)     geometry_plan "${2:?xrandr file}" "${3:?bspwm file}" ;;
-  -h|--help)  sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//' ;;
+  -h|--help)  sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//' ;;
   *) echo "uso: monitors.sh [--apply [--no-bar]|--watch|--dpi [salida]|--desktops|--list|--status]" >&2; exit 2 ;;
 esac
