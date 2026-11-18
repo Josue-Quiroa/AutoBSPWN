@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# AutoBSPWN v3.4.5 - autobspwn-monitor: reparar pantallas y fijar la resolución
+#   autobspwn-monitor              repara (cambio de modo + layout) con la resolución guardada;
+#                                  si no hay ninguna guardada, la pregunta, la guarda y la aplica
+#   autobspwn-monitor --res WxH    guarda esa resolución (res= en el state) y repara
+#   autobspwn-monitor --ask        vuelve a preguntar la resolución
+#   autobspwn-monitor --auto       borra la resolución guardada (usa la preferida de cada salida)
+#   autobspwn-monitor --status | --layout | --list | --apply | --dpi   -> monitors.sh tal cual
+set -euo pipefail
+scripts="$HOME/.config/bspwm/scripts"
+mon="$scripts/monitors.sh"
+if [ ! -x "$mon" ] || [ ! -r "$scripts/lib.sh" ]; then
+  echo "autobspwn-monitor: no encuentro $mon (corre autobspwn-update o ./Install.sh)" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "$scripts/lib.sh"
+
+valid_res() { [[ ${1:-} =~ ^[0-9]{3,5}x[0-9]{3,5}$ ]]; }
+
+# modes the primary (or first connected) output supports, one per line, without duplicates
+list_modes() {
+  command -v xrandr >/dev/null 2>&1 || return 0
+  xrandr --query 2>/dev/null | awk '
+    / connected/ { if (out == "" || / primary /) { out = $1; prim = (/ primary /) } ; cur = $1; next }
+    /^[^ ]/ { cur = ""; next }
+    cur != "" && $1 ~ /^[0-9]+x[0-9]+$/ { m[cur] = m[cur] " " $1 }
+    END { n = split(m[out], a, " "); for (i = 1; i <= n; i++) if (!seen[a[i]]++) print a[i] }'
+}
+
+ask_res() {
+  local modes choice
+  modes=$(list_modes)
+  if [ -t 0 ] && [ -t 1 ]; then
+    echo "Resoluciones disponibles:" >&2
+    if [ -n "$modes" ]; then printf '%s\n' "$modes" | sed 's/^/  /' >&2; fi
+    read -r -p "¿Qué resolución quieres? (ej. 1920x1080, vacío = automática): " choice || choice=''
+  elif command -v rofi >/dev/null 2>&1; then
+    choice=$(printf 'auto\n%s\n' "$modes" | rofi -dmenu -i -p "Resolución" 2>/dev/null) || choice=''
+  else
+    choice=''
+  fi
+  choice=${choice// /}
+  case "$choice" in
+    ''|auto) printf 'auto\n' ;;
+    *) if valid_res "$choice"; then printf '%s\n' "$choice"
+       else echo "autobspwn-monitor: '$choice' no es una resolución válida (WxH)" >&2; return 1; fi ;;
+  esac
+}
+
+save_res() {   # save_res WxH|auto
+  ab_state_set res "$1"
+  if [ "$1" = auto ]; then echo "Resolución: automática (la preferida de cada pantalla)"
+  else echo "Resolución guardada: $1"; fi
+}
+
+case "${1:-}" in
+  -h|--help)
+    sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
+    exit 0 ;;
+  --res)
+    [ -n "${2:-}" ] || { echo "Uso: autobspwn-monitor --res 1920x1080" >&2; exit 2; }
+    valid_res "$2" || { echo "autobspwn-monitor: '$2' no es una resolución válida (WxH)" >&2; exit 2; }
+    save_res "$2"; exec "$mon" --fix ;;
+  --ask)
+    r=$(ask_res) || exit 2; save_res "$r"; exec "$mon" --fix ;;
+  --auto)
+    save_res auto; exec "$mon" --fix ;;
+  ""|--fix)
+    if [ -z "${AUTOBSPWN_RES:-}" ] && [ "$(ab_state_get res '')" = '' ]; then
+      r=$(ask_res) || exit 2; save_res "$r"
+    fi
+    exec "$mon" --fix ;;
+  *) exec "$mon" "$@" ;;
+esac

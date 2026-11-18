@@ -7,7 +7,7 @@ Barra limpia y redondeada · dashboard eww · animaciones y blur · bloqueo dese
 
 <br>
 
-![Versión](https://img.shields.io/badge/versión-3.4.4-B39DDB?style=for-the-badge)
+![Versión](https://img.shields.io/badge/versión-3.4.5-B39DDB?style=for-the-badge)
 ![Parrot](https://img.shields.io/badge/Parrot_OS-Home_%7C_Security-16B1C6?style=for-the-badge&logo=parrotsecurity&logoColor=white)
 ![Kali](https://img.shields.io/badge/Kali-compatible-557C94?style=for-the-badge&logo=kalilinux&logoColor=white)
 ![BSPWM](https://img.shields.io/badge/WM-bspwm-8A5CF6?style=for-the-badge)
@@ -25,7 +25,7 @@ Barra limpia y redondeada · dashboard eww · animaciones y blur · bloqueo dese
 ## Contenido
 
 - [Instalación](#instalación) · [Actualizar](#actualizar)
-- [Qué incluye](#qué-incluye) · [Novedades 3.4.4](#novedades-344) · [Novedades 3.4.3](#novedades-343) · [Novedades 3.4.2](#novedades-342) · [Novedades 3.4.1](#novedades-341) · [Novedades 3.4.0](#novedades-340) · [Novedades 3.3.1](#novedades-331) · [Novedades 3.3.0](#novedades-330)
+- [Qué incluye](#qué-incluye) · [Novedades 3.4.5](#novedades-345) · [Novedades 3.4.4](#novedades-344) · [Novedades 3.4.3](#novedades-343) · [Novedades 3.4.2](#novedades-342) · [Novedades 3.4.1](#novedades-341) · [Novedades 3.4.0](#novedades-340) · [Novedades 3.3.1](#novedades-331) · [Novedades 3.3.0](#novedades-330)
 - [Atajos esenciales](#atajos-esenciales)
 - [Flujo de pentest](#flujo-de-pentest)
 - [Herramientas de Parrot Security](#herramientas-de-parrot-security-opcional)
@@ -103,6 +103,13 @@ Hace `git pull --ff-only` en tu clon de AutoBSPWN y luego `./Install.sh --update
 | 🎯 **Pentest** | Target HUD con targets guardados, comandos rápidos, **scope guard**, recon `tscan`, **loot ledger** y timeline por target; VPN/lab switcher, portapapeles, launcher de tools |
 | ⚡ **Extras** | Calendario, hoja de atajos, capturas, menú de escritorio, scratchpad con hasta 4 terminales tmux (Alt+1…4) |
 
+### Novedades 3.4.5
+
+- Nuevo comando **`autobspwn-monitor`**: sin argumentos repara las pantallas (lo mismo que `Super+Alt+Shift+r` / `monitors.sh --fix`) con tu resolución guardada. Si no hay ninguna guardada, te muestra las que soporta tu pantalla, te pregunta cuál quieres, la guarda (`res=` en `~/.config/autobspwn/state`) y la aplica.
+  - `autobspwn-monitor --res 2560x1440`: guarda y aplica otra resolución directo.
+  - `autobspwn-monitor --ask`: vuelve a preguntar · `--auto`: usa la preferida de cada pantalla.
+  - `autobspwn-monitor --status`: muestra si xrandr y bspwm coinciden.
+
 ### Novedades 3.4.4
 
 Doble monitor en **VMware / VirtualBox**, ahora sí al pasar de 1 ↔ 2 pantallas y al salir de
@@ -125,7 +132,7 @@ pantalla completa:
   hay un vigilante (al recargar bspwm el nuevo reemplaza al viejo) y el flujo automático **nunca**
   usa `bspc wm -r` (eso relanzaba bspwmrc y el vigilante; con el teclado a veces sin responder).
 - **Reparar a mano:** **`Super`+`Alt`+`Shift`+`r`**, «Reparar pantallas» en el menú del escritorio
-  (clic derecho) o `~/.config/bspwm/scripts/monitors.sh --fix`: hace el kick + layout aunque ya se
+  (clic derecho) o `autobspwn-monitor` (= `monitors.sh --fix`): hace el kick + layout aunque ya se
   haya hecho. `monitors.sh --layout` muestra lo que aplicaría.
 
 ### Novedades 3.4.3

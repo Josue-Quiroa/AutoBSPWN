@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.4.4 - BSPWM desktop installer
+# AutoBSPWN v3.4.5 - BSPWM desktop installer
 # Target: Parrot OS Home Edition (Parrot 6 "lory" / Debian 12 MATE and Parrot 7 "echo" /
 #         Debian 13 KDE). Also Parrot Security and Kali Linux.
 # v3.4.4: VMware / VirtualBox 1 <-> 2 screens: real mode change ("kick") + layout, once per
@@ -47,7 +47,7 @@ cd "$SCRIPT_DIR"
 
 : "${USER:=$(id -un)}"
 export USER
-VERSION="3.4.4"
+VERSION="3.4.5"
 NICKNAME="${NICKNAME:-}"   # v3: ignored (wallpapers no longer carry text); kept so old commands still work
 SKIP_UPGRADE=0
 SKIP_FONTS=0
@@ -98,6 +98,7 @@ Ejemplos:
   ./Install.sh --update                        # actualizar sólo los dotfiles (o: autobspwn-update)
   autobspwn-update --rollback                  # volver al backup del último update
   autobspwn-doctor                             # revisar dependencias y configs
+  autobspwn-monitor [--status]                 # reparar pantallas (VMware) / ver estado
 USAGE
 }
 
@@ -920,7 +921,7 @@ ensure_path_file() {
 # file is kept and the new version is written next to it as <file>.autobspwn-new.
 # Files theme-sync regenerates are always replaced (the theme is re-applied right after), and
 # the theme-sync block inside dunstrc is ignored when comparing.
-AB_BIN_SCRIPTS="setFocus clearFocus targetFav polybar-theme extractHosts theme-sync autobspwn-notifyd scope-check tscan loot autobspwn-update autobspwn-doctor note"
+AB_BIN_SCRIPTS="setFocus clearFocus targetFav polybar-theme extractHosts theme-sync autobspwn-notifyd scope-check tscan loot autobspwn-update autobspwn-doctor note autobspwn-monitor"
 AB_MANIFEST="$HOME/.config/autobspwn/manifest.tsv"
 AB_THEME_OWNED=" .config/rofi/dpi.rasi .config/polybar/colors.ini .config/kitty/theme.conf .config/rofi/colors.rasi .config/eww/colors.scss "
 declare -gA AB_MAN_OLD=() AB_MAN_NEW=()

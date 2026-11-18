@@ -37,7 +37,7 @@ Notas:
   y `Super + Alt + Shift + 1…0` manda la ventana ahí. Una barra por monitor y DPI automático.
   `desktops=each` en `~/.config/autobspwn/state` vuelve a I–X en cada monitor. En VMware /
   VirtualBox no se fuerza xrandr (manda el agente de la VM); `monitors.sh --status` diagnostica.
-- **Reparar pantallas** (`Super + Alt + Shift + r`, menú del escritorio o `monitors.sh --fix`):
+- **Reparar pantallas** (`Super + Alt + Shift + r`, menú del escritorio o `autobspwn-monitor` en la terminal):
   en VMware/VirtualBox, si la segunda pantalla queda negra o a medio pintar, fuerza un cambio de
   modo real (1600x900 → nativo) y reaplica el layout. Resolución: `res=1920x1080` en el state.
 
@@ -214,6 +214,7 @@ Notas:
 | `autobspwn-update` | `git pull` del repo + `Install.sh --update` (sólo configs; conserva tus ediciones) |
 | `autobspwn-update --list-backups` · `--rollback [N]` | Ver los backups · volver al de antes del último update (tus targets no se tocan) |
 | `autobspwn-doctor [--quiet]` | Revisa dependencias, versiones y configs: OK / WARN / FAIL (exit 0/1/2) |
+| `autobspwn-monitor [--res WxH\|--ask\|--auto\|--status]` | Repara las pantallas (igual que Super+Alt+Shift+r) con la resolución guardada; si no hay, la pregunta. `--res` fija otra, `--status` compara xrandr y bspwm |
 | `note <texto>` | Nota rápida al `notes.md` del target (o `~/notes/inbox.md`) = Super+Alt+n |
 | `note --list` · `note --rm N` · `note --rm-all` | Ver las notas numeradas · borrar la N (o `2,5`, `3-6`) · borrar todas (pide `BORRAR`) |
 | `~/.config/bspwm/scripts/record.sh --dir` · `--set-dir <ruta>` · `--last` | Carpeta de grabaciones · cambiarla (`default` = ~/Videos/AutoBSPWN) · última grabación |
