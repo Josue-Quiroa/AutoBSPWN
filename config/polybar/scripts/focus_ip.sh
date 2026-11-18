@@ -49,6 +49,9 @@ if [ -z "$NAME" ] && [ -r /etc/hosts ]; then
   NAME=$(awk -v ip="$IP" '$1==ip{print $2; exit}' /etc/hosts 2>/dev/null)
 fi
 [ ${#NAME} -gt 18 ] && NAME="${NAME:0:17}…"
+# Never let the name / IP files add polybar tags (%{A1:cmd:} would run cmd on click)
+NAME=${NAME//%/}                       # no '%' at all: '%%{' would still open a tag
+[[ $IP =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || IP="(IP inválida)"
 # Narrow monitor (AB_BAR_COMPACT=1 from launch.sh): IP only
 [ "${AB_BAR_COMPACT:-0}" = 1 ] && NAME=
 # Open ports in the bar only on request (AUTOBSPWN_BAR_PORTS=1): they are in the target menu

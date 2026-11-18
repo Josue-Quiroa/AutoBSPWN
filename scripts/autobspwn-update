@@ -109,15 +109,20 @@ do_rollback() {
     # already identical (same content, or the same symlink) → nothing to do: idempotent
     if [ -L "$f" ]; then
       [ -L "$dst" ] && [ "$(readlink "$f")" = "$(readlink "$dst")" ] && { same=$((same + 1)); continue; }
-    elif [ -f "$dst" ] && [ ! -L "$dst" ] && cmp -s "$f" "$dst"; then
+    elif [ -f "$dst" ] && cmp -s "$f" "$dst"; then
       same=$((same + 1)); continue
     fi
     # save what is there now (same layout → restorable with --rollback <snapshot>)
     if [ -e "$dst" ] || [ -L "$dst" ]; then
       mkdir -p "$(dirname "$snap/$rel")"
-      cp -a "$dst" "$snap/$rel" 2>/dev/null || true
+      cp -aH "$dst" "$snap/$rel" 2>/dev/null || true     # by content, also for a symlinked file
     fi
     mkdir -p "$(dirname "$dst")"
+    if [ -L "$dst" ] && [ -e "$dst" ] && [ ! -L "$f" ]; then
+      # your dotfile is a link (stow…): restore the content through it, keep the link
+      cp -f -- "$f" "$dst" 2>/dev/null && { n=$((n + 1)); continue; }
+      echo "[!] No pude restaurar ${dst/#"$HOME"/\~}" >&2; continue
+    fi
     if ! cp -a --remove-destination "$f" "$dst" 2>/dev/null; then
       echo "[!] No pude restaurar ${dst/#"$HOME"/\~}" >&2; continue
     fi

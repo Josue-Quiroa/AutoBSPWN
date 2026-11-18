@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.4.0 - BSPWM desktop installer
+# AutoBSPWN v3.4.1 - BSPWM desktop installer
 # Target: Parrot OS Home Edition (Parrot 6 "lory" / Debian 12 MATE and Parrot 7 "echo" /
 #         Debian 13 KDE). Also Parrot Security and Kali Linux.
 # v3.4.0: autobspwn-doctor, autobspwn-update --rollback, presentation mode (Super+F12), quick
@@ -40,7 +40,7 @@ cd "$SCRIPT_DIR"
 
 : "${USER:=$(id -un)}"
 export USER
-VERSION="3.4.0"
+VERSION="3.4.1"
 NICKNAME="${NICKNAME:-}"   # v3: ignored (wallpapers no longer carry text); kept so old commands still work
 SKIP_UPGRADE=0
 SKIP_FONTS=0
@@ -492,14 +492,15 @@ backup_existing() {
   mkdir -p "$BACKUP_DIR"
   local d f
   for d in bspwm sxhkd polybar picom kitty rofi dunst jgmenu eww betterlockscreen; do
-    [ -d "$HOME/.config/$d" ] && cp -a "$HOME/.config/$d" "$BACKUP_DIR/" || true
+    # -H: a symlinked config dir/file (stow, dotfiles repo) is saved by content, not as a link
+    [ -d "$HOME/.config/$d" ] && cp -aH "$HOME/.config/$d" "$BACKUP_DIR/" || true
   done
   for f in .zshrc .p10k.zsh .config/greenclip.toml .fehbg .config/gtk-3.0/settings.ini \
            .local/share/dbus-1/services/org.freedesktop.Notifications.service .config/autostart/picom.desktop \
            .config/autobspwn/manifest.tsv .config/autobspwn/scratch.tmux.conf; do
     if [ -f "$HOME/$f" ]; then
       mkdir -p "$BACKUP_DIR/$(dirname "$f")"
-      cp -a "$HOME/$f" "$BACKUP_DIR/$f"
+      cp -aH "$HOME/$f" "$BACKUP_DIR/$f"
     fi
   done
   for f in $AB_BIN_SCRIPTS nmap ffuf; do
@@ -509,6 +510,22 @@ backup_existing() {
     fi
   done
   ok "Backup listo"
+  prune_backups
+}
+
+# Keep the newest AUTOBSPWN_KEEP_BACKUPS backups (default 10; 0 = keep all). Each one is a full
+# copy of ~/.config/bspwm & co. (several MB) and every --update / autobspwn-update makes one.
+prune_backups() {
+  local keep=${AUTOBSPWN_KEEP_BACKUPS:-10} old=() b
+  [[ $keep =~ ^[0-9]+$ ]] && [ "$keep" -gt 0 ] || return 0
+  mapfile -t old < <(find "$HOME/.config" -maxdepth 1 -mindepth 1 -type d -name 'autobspwn-backup-*' -printf '%f\n' 2>/dev/null \
+                       | sort -r | tail -n +"$((keep + 1))")
+  for b in "${old[@]}"; do
+    [[ $b == autobspwn-backup-* ]] && [ "$HOME/.config/$b" != "$BACKUP_DIR" ] || continue
+    rm -rf -- "${HOME:?}/.config/$b" && log "INFO backup antiguo borrado: $b"
+  done
+  [ ${#old[@]} -gt 0 ] && info "Backups antiguos borrados: ${#old[@]} (se guardan los $keep más recientes)"
+  return 0
 }
 
 # Opt-in only (--disable-backports): Parrot docs keep backports enabled by default.
@@ -930,6 +947,17 @@ deploy_file() {
   local src=$1 dst=$2 mode=${3:-} rel new cur old
   rel=${dst#"$HOME"/}
   new=$(file_sum "$src")
+  # a symlink (stow / dotfiles repo): never write through it; the new version goes next to it
+  if [ -L "$dst" ]; then
+    if [ "$(file_sum "$dst")" != "$new" ]; then
+      cp -f "$src" "$dst.autobspwn-new" 2>/dev/null || true
+      warn "$dst es un enlace simbólico (¿stow?): no se toca; la versión nueva está en $dst.autobspwn-new"
+    else
+      rm -f "$dst.autobspwn-new"
+    fi
+    AB_MAN_NEW[$rel]=${AB_MAN_OLD[$rel]:-$new}
+    return 0
+  fi
   if [ -f "$dst" ]; then
     cur=$(file_sum "$dst")
     if [ "$cur" = "$new" ]; then

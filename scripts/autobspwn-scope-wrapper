@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AUTOBSPWN-SCOPE-WRAPPER — AutoBSPWN v3.3.0 scope guard for nmap / ffuf.
+# AUTOBSPWN-SCOPE-WRAPPER — AutoBSPWN v3.4.0 scope guard for nmap / ffuf.
 # Installed as ~/.local/bin/nmap and ~/.local/bin/ffuf (they come first in PATH). Before
 # running the real tool it checks every target against the active target's scope.conf
 # (see scope-check). Out of scope → critical notification and exit 1, unless --force.
@@ -53,19 +53,23 @@ nmap_targets() {
     --datadir --data-length --data --data-string --ttl --spoof-mac --dns-servers --version-intensity
     --stylesheet --resume --scan-delay --max-scan-delay --min-hostgroup --max-hostgroup
     --min-parallelism --max-parallelism --min-rtt-timeout --max-rtt-timeout --initial-rtt-timeout
-    --mtu --proxies --source-port --exclude-ports --servicedb --versiondb --ip-options --script-timeout '
+    --mtu --proxies --source-port --exclude-ports --servicedb --versiondb --ip-options --script-timeout
+    --stats-every --max-os-tries --nsock-engine --script-help --min-tries '
   local i=0 a n=${#args[@]} line words
   takes=" ${takes//$'\n'/ } "
   while [ "$i" -lt "$n" ]; do
     a=${args[$i]}
     if [ "$a" = -iL ]; then
       i=$((i + 1))
-      if [ "$i" -lt "$n" ] && [ -r "${args[$i]}" ]; then
-        while read -r line; do
+      if [ "$i" -lt "$n" ] && [ "${args[$i]}" != - ] && [ -f "${args[$i]}" ] && [ -r "${args[$i]}" ]; then
+        while read -r line || [ -n "$line" ]; do
           line=${line%%#*}
           read -r -a words <<<"$line"     # no globbing: 10.0.0.* stays literal
           targets+=("${words[@]}")
-        done < <(head -n 2000 "${args[$i]}")
+        done <"${args[$i]}"
+      else
+        # stdin (-iL -) or unreadable: can't be checked → blocked while a scope is active
+        targets+=("<lista -iL no legible: ${args[$i]:-?}>")
       fi
     elif [[ "$takes" == *" $a "* ]]; then
       i=$((i + 1))

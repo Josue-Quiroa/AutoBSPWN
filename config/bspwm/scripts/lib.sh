@@ -147,9 +147,10 @@ ab_notify_crit() {
 # by pattern and through /etc/hosts (AB_HOSTS_FILE), never through DNS.
 AB_SCOPE_IN=(); AB_SCOPE_OUT=(); AB_SCOPE_BAD=(); AB_SCOPE_REASON=""; AB_SCOPE_SRC=""; AB_SCOPE_STATUS=""
 
+# Strict dotted-quad: no leading zeros ("010.010.011.005" is 8.8.9.5 for glibc/curl/ssh, octal)
 ab_is_ipv4() {
-  [[ ${1:-} =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$ ]] || return 1
-  (( 10#${BASH_REMATCH[1]} <= 255 && 10#${BASH_REMATCH[2]} <= 255 && 10#${BASH_REMATCH[3]} <= 255 && 10#${BASH_REMATCH[4]} <= 255 ))
+  [[ ${1:-} =~ ^(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})$ ]] || return 1
+  (( BASH_REMATCH[1] <= 255 && BASH_REMATCH[2] <= 255 && BASH_REMATCH[3] <= 255 && BASH_REMATCH[4] <= 255 ))
 }
 
 ab_ip2int() {
@@ -158,17 +159,33 @@ ab_ip2int() {
   echo $(( (10#$a << 24) | (10#$b << 16) | (10#$c << 8) | 10#$d ))
 }
 
-# "lo hi" (integers) for an IP, a CIDR, a last-octet range (10.0.0.5-20) or 10.0.0.*
+# "lo hi" (integers) for an IP, a CIDR or an nmap-style octet spec: 10.0.0.5-20, 10.10.1-12.7,
+# 10.0.0.1,3,5, 10.0.0.* (multi-octet specs → their bounding range: conservative both ways)
 ab_net_range() {
-  local s=${1:-} ip bits=32 lo hi mask
-  if [[ $s =~ ^(([0-9]{1,3}\.){3})([0-9]{1,3})-([0-9]{1,3})$ ]]; then
-    local first="${BASH_REMATCH[1]}${BASH_REMATCH[3]}" last="${BASH_REMATCH[1]}${BASH_REMATCH[4]}"
-    ab_is_ipv4 "$first" && ab_is_ipv4 "$last" || return 1
-    lo=$(ab_ip2int "$first"); hi=$(ab_ip2int "$last")
-    (( lo <= hi )) || return 1
+  local s=${1:-} ip bits=32 lo hi mask o tok a b mn mx
+  local -a oc toks
+  if [[ $s != */* && $s == *[-,*]* && $s =~ ^[0-9*,-]+\.[0-9*,-]+\.[0-9*,-]+\.[0-9*,-]+$ ]]; then
+    IFS=. read -r -a oc <<<"$s"
+    lo=0; hi=0
+    for o in "${oc[@]}"; do
+      if [ "$o" = '*' ]; then mn=0; mx=255
+      else
+        mn=256; mx=-1
+        IFS=, read -r -a toks <<<"$o"
+        [ ${#toks[@]} -gt 0 ] || return 1
+        for tok in "${toks[@]}"; do
+          if [[ $tok =~ ^(0|[1-9][0-9]{0,2})-(0|[1-9][0-9]{0,2})$ ]]; then a=${BASH_REMATCH[1]}; b=${BASH_REMATCH[2]}
+          elif [[ $tok =~ ^(0|[1-9][0-9]{0,2})$ ]]; then a=$tok; b=$tok
+          else return 1; fi
+          (( a <= b && b <= 255 )) || return 1
+          (( a < mn )) && mn=$a
+          (( b > mx )) && mx=$b
+        done
+      fi
+      lo=$(( (lo << 8) | mn )); hi=$(( (hi << 8) | mx ))
+    done
     echo "$lo $hi"; return 0
   fi
-  [[ $s =~ ^(([0-9]{1,3}\.){3})\*$ ]] && s="${BASH_REMATCH[1]}0/24"
   ip=${s%/*}
   if [[ $s == */* ]]; then
     bits=${s#*/}
@@ -194,7 +211,11 @@ ab_host_match() {
   fi
 }
 
-ab_is_hostname() { [[ ${1:-} =~ ^[A-Za-z0-9_*]([A-Za-z0-9_.*-]*[A-Za-z0-9_])?$ ]] && [[ $1 == *[A-Za-z_]* ]]; }
+ab_is_hostname() {
+  [[ ${1:-} =~ ^[A-Za-z0-9_*]([A-Za-z0-9_.*-]*[A-Za-z0-9_])?$ ]] && [[ $1 == *[A-Za-z_]* ]] || return 1
+  # numeric IP spellings resolvers accept (0x0a0a0b05, 0xa.0xa.11.5) are addresses, not names
+  ! [[ ${1,,} =~ ^((0x[0-9a-f]*|[0-9]+)\.?)+$ ]]
+}
 
 # Which scope.conf applies: $AB_SCOPE_FILE → the ACTIVE target's → ~/targets/<arg>/
 ab_scope_file() {
@@ -257,6 +278,11 @@ ab_scope_check() {
   AB_SCOPE_REASON=""; AB_SCOPE_SRC=""
   # URL / host:port → host
   q=${q#*://}; q=${q#*@}
+  if [[ $q == \[* ]]; then q=${q#\[}; q=${q%%]*}; fi          # [IPv6]:port
+  if [[ $q == *:*:* ]]; then
+    AB_SCOPE_REASON="IPv6 no soportado por scope.conf: $1"
+    AB_SCOPE_STATUS=invalid; echo invalid; return 3
+  fi
   if ! [[ $q =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$ ]]; then q=${q%%[/?#]*}; fi
   [[ $q == *:* ]] && q=${q%%:*}
   q=${q%.}
@@ -302,10 +328,15 @@ scope-check() { ab_scope_check "$@"; }
 
 # ab_scope_guard <force 0|1> <qué> <target...>  → 0 = go, 1 = blocked (critical notification)
 ab_scope_guard() {
-  local force=$1 what=$2 t rc bad=0
+  local force=$1 what=$2 t rc bad=0 sf
   shift 2
   for t in "$@"; do
     rc=0; ab_scope_check "$t" >/dev/null || rc=$?
+    # can't be evaluated (IPv6, odd spelling, unreadable list) while a scope is active → blocked
+    if [ "$rc" -eq 3 ] && sf=$(ab_scope_file "$t") && ab_scope_load "$sf" \
+       && (( ${#AB_SCOPE_IN[@]} + ${#AB_SCOPE_OUT[@]} > 0 )); then
+      AB_SCOPE_SRC=$sf; AB_SCOPE_REASON="no verificable: $AB_SCOPE_REASON"; rc=1
+    fi
     [ "$rc" -eq 1 ] || continue
     if [ "$force" = 1 ]; then
       echo "[!] $t FUERA DE SCOPE ($AB_SCOPE_REASON) — forzado con --force" >&2
@@ -381,10 +412,10 @@ ab_markup_escape() {
   printf '%s' "$s"
 }
 
-# text for a polybar label: neutralise %{…} format tags (a hostile name could add %{A1:cmd:})
+# text for a polybar label: no %{…} format tags (a hostile name could add %{A1:cmd:})
 ab_polybar_escape() {
   local s=${1:-}
-  s=${s//'%{'/'%%{'}    # polybar ≥ 3.6: "%%{" prints a literal "%{"
+  s=${s//%/}    # polybar has no escape for "%{" ("%%{" still opens a tag): drop every %
   printf '%s' "$s"
 }
 

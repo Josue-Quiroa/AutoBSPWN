@@ -83,7 +83,7 @@ ok=$(polycolor success '#a6e3a1')
 warn=$(polycolor warning '#fab387')
 if [ -z "$IFACE" ]; then
   if [ -n "$NM" ]; then
-    echo "%{F$warn}󰒃%{F-} $NM…"        # NM says active but no tun IP yet
+    echo "%{F$warn}󰒃%{F-} ${NM//%/}…"        # NM says active but no tun IP yet
   else
     if [ "${AB_BAR_COMPACT:-0}" = 1 ]; then echo "%{F$muted}󰦞%{F-}"; else echo "%{F$muted}󰦞 VPN off%{F-}"; fi
   fi
@@ -96,6 +96,7 @@ if present_mode; then
 fi
 # Keep the bar compact: long profile names are shortened
 [ ${#LABEL} -gt 18 ] && LABEL="${LABEL:0:17}…"
+LABEL=${LABEL//%/}                  # profile / connection names are free text: no polybar tags
 [ "${AB_BAR_COMPACT:-0}" = 1 ] && LABEL=
 extra=
 [ ${#IFS_UP[@]} -gt 1 ] && extra=" %{F$muted}+$(( ${#IFS_UP[@]} - 1 ))%{F-}"

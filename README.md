@@ -7,7 +7,7 @@ Barra limpia y redondeada · dashboard eww · animaciones y blur · bloqueo dese
 
 <br>
 
-![Versión](https://img.shields.io/badge/versión-3.4.0-B39DDB?style=for-the-badge)
+![Versión](https://img.shields.io/badge/versión-3.4.1-B39DDB?style=for-the-badge)
 ![Parrot](https://img.shields.io/badge/Parrot_OS-Home_%7C_Security-16B1C6?style=for-the-badge&logo=parrotsecurity&logoColor=white)
 ![Kali](https://img.shields.io/badge/Kali-compatible-557C94?style=for-the-badge&logo=kalilinux&logoColor=white)
 ![BSPWM](https://img.shields.io/badge/WM-bspwm-8A5CF6?style=for-the-badge)
@@ -25,7 +25,7 @@ Barra limpia y redondeada · dashboard eww · animaciones y blur · bloqueo dese
 ## Contenido
 
 - [Instalación](#instalación) · [Actualizar](#actualizar)
-- [Qué incluye](#qué-incluye) · [Novedades 3.4.0](#novedades-340) · [Novedades 3.3.1](#novedades-331) · [Novedades 3.3.0](#novedades-330)
+- [Qué incluye](#qué-incluye) · [Novedades 3.4.1](#novedades-341) · [Novedades 3.4.0](#novedades-340) · [Novedades 3.3.1](#novedades-331) · [Novedades 3.3.0](#novedades-330)
 - [Atajos esenciales](#atajos-esenciales)
 - [Flujo de pentest](#flujo-de-pentest)
 - [Herramientas de Parrot Security](#herramientas-de-parrot-security-opcional)
@@ -102,6 +102,18 @@ Hace `git pull --ff-only` en tu clon de AutoBSPWN y luego `./Install.sh --update
 | 🔎 **Rofi** | Menús compactos con iconos y esquinas redondeadas |
 | 🎯 **Pentest** | Target HUD con targets guardados, comandos rápidos, **scope guard**, recon `tscan`, **loot ledger** y timeline por target; VPN/lab switcher, portapapeles, launcher de tools |
 | ⚡ **Extras** | Calendario, hoja de atajos, capturas, menú de escritorio, scratchpad con hasta 4 terminales tmux (Alt+1…4) |
+
+### Novedades 3.4.1
+
+Versión de arreglos tras una auditoría:
+
+- El instalador y el rollback ya no escriben a través de dotfiles enlazados (stow); el backup guarda el contenido real.
+- Scope más estricto: rangos por octeto (`10.10.11.0-5`, `10.10.11.*`), IPs con ceros a la izquierda, hex o IPv6 y `-iL -` ya no se saltan las exclusiones; lo no verificable se bloquea salvo `--force`.
+- Polybar limpia `%` en nombres de target y VPN (no se pueden inyectar acciones en la barra).
+- `setFocus` valida la IP estrictamente y aplana nombres raros; `loot` copia el contenido real de enlaces y solo copia al portapapeles texto de hasta 64 KB.
+- `tscan` usa sudo solo si está disponible; si no, hace `-sT` y avisa.
+- Se guardan los últimos 10 backups (`AUTOBSPWN_KEEP_BACKUPS`).
+- Nuevos tests de regresión en `tests/audit.bats`.
 
 ### Novedades 3.4.0
 

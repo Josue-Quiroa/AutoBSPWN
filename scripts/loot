@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.3.0 — loot ledger for the active target.
+# AutoBSPWN v3.4.0 — loot ledger for the active target.
 #   loot <etiqueta> <archivo>        move the file to ~/targets/<ip>/loot/, copy its new path
 #   cmd | loot <etiqueta>            save stdin as loot/<etiqueta>.txt and copy it to the clipboard
 #   loot -t TOOL ...                 say which tool produced it   ·   loot -i IP ...  other target
@@ -101,8 +101,14 @@ if [ -n "$src" ]; then
   dest="$L/$name"
   case "$origin" in "$L"/*) echo "loot: $src ya está en $L" >&2; exit 1 ;; esac
   if [ -e "$dest" ]; then dest="$L/${name%.*}-$(date +%Y%m%d-%H%M%S).${name##*.}"; [ "$name" = "${name%.*}" ] && dest="$L/$name-$(date +%Y%m%d-%H%M%S)"; fi
-  mv -n -- "$src" "$dest"
-  [ -e "$dest" ] || { echo "loot: no se pudo mover $src" >&2; exit 1; }
+  if [ -L "$src" ]; then
+    # a symlink: keep a real copy of the content (moving the link would leave the loot outside
+    # loot/ and chmod would change the original); the link itself is left alone
+    cp --dereference -- "$src" "$dest"
+  else
+    mv -n -- "$src" "$dest"
+  fi
+  [ -e "$dest" ] && [ ! -L "$dest" ] || { echo "loot: no se pudo guardar $src" >&2; exit 1; }
   chmod 600 "$dest" 2>/dev/null || true
   ab_copy "$dest" >/dev/null 2>&1 || true
   what="ruta copiada al portapapeles"
@@ -114,8 +120,15 @@ else
   cat >"$dest"
   [ -s "$dest" ] || { rm -f "$dest"; echo "loot: stdin vacío, no se guarda nada" >&2; exit 1; }
   chmod 600 "$dest"
-  ab_copy "$(cat "$dest")" >/dev/null 2>&1 || true
-  what="contenido copiado al portapapeles"
+  # big or binary output: the clipboard (and greenclip's history) gets the path instead
+  size=$(stat -c %s "$dest" 2>/dev/null || echo 0)
+  if [ "$size" -le 65536 ] && [ "$(tr -d '\000' <"$dest" | wc -c)" -eq "$size" ]; then
+    ab_copy "$(cat "$dest")" >/dev/null 2>&1 || true
+    what="contenido copiado al portapapeles"
+  else
+    ab_copy "$dest" >/dev/null 2>&1 || true
+    what="es grande o binario: ruta copiada al portapapeles"
+  fi
 fi
 sum=$(sha256sum "$dest" | awk '{print $1}')
 printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$(clean "$label")" "$t" "$(clean "$origin")" "$sum" "${dest#"$dir"/}" >>"$idx"

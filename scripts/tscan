@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.3.0 — tscan: recon pipeline for the Target HUD.
+# AutoBSPWN v3.4.0 — tscan: recon pipeline for the Target HUD.
 #   tscan [--force] [--no-sudo] {fast|full|udp|ad} [ip]      (ip = active target by default)
 #     fast  top 1000 TCP, SYN + versions (light)       full  all 65535 TCP, then -sC -sV on the open ones
 #     udp   top 100 UDP (needs root)                   ad    typical AD ports + AD/SMB/LDAP scripts
@@ -57,7 +57,10 @@ while [ -e "$base.gnmap" ] || [ -e "$base.nmap" ]; do base="$out/$profile-$ts-$n
 SUDO=()
 root=0
 if [ "$(id -u)" -eq 0 ]; then root=1
-elif [ "$nosudo" -eq 0 ] && ab_has sudo; then SUDO=(sudo); root=1
+elif [ "$nosudo" -eq 0 ] && ab_has sudo; then
+  # cached / NOPASSWD, or ask once now (terminal). No sudo rights or no password → -sT
+  if sudo -n true 2>/dev/null || { [ -t 0 ] && sudo -v; }; then SUDO=(sudo); root=1
+  else echo "[!] sin sudo: escaneo TCP connect (-sT) en lugar de SYN" >&2; fi
 fi
 tcp=-sS
 [ "$root" -eq 1 ] || tcp=-sT
@@ -72,7 +75,8 @@ run_nmap() {   # run_nmap <out-base> args...
   "${SUDO[@]}" "$NMAP" "$@" -oA "$b" "$ip" || rc=$?
   # files written by sudo nmap belong to root: give them back
   if [ ${#SUDO[@]} -gt 0 ]; then
-    sudo chown "$(id -u):$(id -g)" "$b".* 2>/dev/null || true
+    sudo -n chown "$(id -u):$(id -g)" "$b".* 2>/dev/null \
+      || sudo chown "$(id -u):$(id -g)" "$b".* 2>/dev/null || true
   fi
   return "$rc"
 }
