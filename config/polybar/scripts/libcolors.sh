@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# AutoBSPWN v3.3.0 — shared theme colors for polybar scripts (source me; do not execute).
+# AutoBSPWN v3.4.0 — shared theme colors for polybar scripts (source me; do not execute).
 # Reads ~/.config/polybar/colors.ini (spaces around '=' are optional).
 # AB_PILL=1 (set in the module's exec line) = the module sits on a colored accent island
 # (shade1..3): normal colors are swapped for on-shade / on-shade-dim so text stays readable.
@@ -24,4 +24,10 @@ polycolor() {
     esac
   fi
   _polycolor_raw "$key" "$def"
+}
+
+# v3.4 presentation / recording mode (Super+F12): true when ~/.config/autobspwn/state has present=1
+present_mode() {
+  local f="${AUTOBSPWN_STATE:-$HOME/.config/autobspwn/state}"
+  [ -r "$f" ] && [ "$(awk 'index($0, "present=") == 1 { v = substr($0, 9) } END { print v }' "$f" 2>/dev/null)" = 1 ]
 }

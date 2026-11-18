@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.3.0 — VPN status for polybar
+# AutoBSPWN v3.4.0 — VPN status for polybar
 #   (no args)  label: icon + profile/connection name + tun IP (+N if several)
 #   --ifaces   "iface<TAB>ipv4" for every VPN interface that is UP (used by vpn-menu.sh)
 #   --copy     copy the first VPN IP      --menu   open vpn-menu.sh
@@ -57,6 +57,7 @@ fi
 
 if [ "${1:-}" = --copy ]; then
   [ -n "$IP" ] || exit 0
+  present_mode && exit 0
   { printf '%s' "$IP" | xclip -selection clipboard 2>/dev/null || printf '%s' "$IP" | xsel -ib 2>/dev/null; } \
     && notify-send -a AutoBSPWN AutoBSPWN "VPN: $IP ($IFACE)" 2>/dev/null
   exit 0
@@ -86,6 +87,11 @@ if [ -z "$IFACE" ]; then
   else
     if [ "${AB_BAR_COMPACT:-0}" = 1 ]; then echo "%{F$muted}󰦞%{F-}"; else echo "%{F$muted}󰦞 VPN off%{F-}"; fi
   fi
+  exit 0
+fi
+# Presentation mode (Super+F12): connected, but no profile name and no IP on screen
+if present_mode; then
+  echo "%{F$ok}󰕥%{F-} %{F$muted}VPN · oculto%{F-}"
   exit 0
 fi
 # Keep the bar compact: long profile names are shortened

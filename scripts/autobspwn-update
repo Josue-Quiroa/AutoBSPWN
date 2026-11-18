@@ -1,29 +1,141 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.3.0 — autobspwn-update: bring your AutoBSPWN clone up to date and re-sync the
+# AutoBSPWN v3.4.0 — autobspwn-update: bring your AutoBSPWN clone up to date and re-sync the
 # dotfiles, scripts, themes, wallpapers and ATAJOS (Install.sh --update: no apt, no upgrade,
 # no fonts, no tools; backup first; your edited files are kept). Reloads bspwm/polybar/sxhkd.
 #   autobspwn-update                 git pull --ff-only + Install.sh --update
 #   autobspwn-update --no-pull       only Install.sh --update from the clone
 #   autobspwn-update --repo DIR      use this clone (remembered for next time)
 #   autobspwn-update --where         print the clone it would use
+#   autobspwn-update --list-backups  backups made by Install.sh (newest first, numbered)
+#   autobspwn-update --rollback [N|nombre]   restore the newest backup (or number N / that name):
+#       the dotfiles as they were BEFORE that update. Your targets, favourites, focus and quick
+#       commands are never touched; the current files are saved first in a "-rollback" backup.
 # The clone is found in: --repo, $AUTOBSPWN_REPO, ~/.config/autobspwn/repo (written by
 # Install.sh), then ~/AutoBSPWN, ~/autobspwn, ~/git/, ~/tools/, ~/Downloads/, /opt/.
 set -Eeuo pipefail
 URL="https://github.com/Josue-Quiroa/AutoBSPWN"
 STATE="$HOME/.config/autobspwn/repo"
 
-pull=1; where=0; repo=''
+pull=1; where=0; repo=''; rollback=0; rb_pick=''; list_bk=0
 while [ $# -gt 0 ]; do
   case "$1" in
+    --rollback)
+      rollback=1
+      if [ -n "${2:-}" ] && [[ "$2" != -* ]]; then rb_pick=$2; shift; fi ;;
+    --rollback=*) rollback=1; rb_pick=${1#--rollback=} ;;
+    --list-backups) list_bk=1 ;;
     --no-pull) pull=0 ;;
     --where) where=1 ;;
     --repo) repo=${2:-}; shift ;;
     --repo=*) repo=${1#--repo=} ;;
-    -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "autobspwn-update: opción desconocida: $1 (--help)" >&2; exit 2 ;;
   esac
   shift
 done
+
+# ---------------------------------------------------------------- backups / rollback
+# Install.sh backup layout: <dir>/<d> = ~/.config/<d> · <dir>/local-bin/* = ~/.local/bin/* ·
+# anything else = ~/<path> (.zshrc, .config/autobspwn/manifest.tsv, …)
+BK_ROOT="$HOME/.config"
+CFG_DIRS=" bspwm sxhkd polybar picom kitty rofi dunst jgmenu eww betterlockscreen "
+# your data, never restored (it may have changed since that backup)
+KEEP_RE='^(\.config/bspwm/(focus_ip|focus_name|focus_history|targets\.tsv|target-commands\.conf)|\.config/autobspwn/(state|repo|version))$'
+
+backups() {   # newest first; "-rollback" snapshots last among equals
+  find "$BK_ROOT" -maxdepth 1 -mindepth 1 -type d -name 'autobspwn-backup-*' -printf '%f\n' 2>/dev/null | sort -r
+}
+
+list_backups() {
+  local i=0 b kind n sz
+  mapfile -t bks < <(backups)
+  if [ ${#bks[@]} -eq 0 ]; then echo "No hay backups de AutoBSPWN en $BK_ROOT"; return 1; fi
+  printf '  %-3s %-44s %7s %6s  %s\n' "N" "backup" "tamaño" "archs" "tipo"
+  for b in "${bks[@]}"; do
+    i=$((i + 1))
+    kind=update/instalación; [[ $b == *-rollback ]] && kind="antes de un rollback"
+    n=$(find "$BK_ROOT/$b" \( -type f -o -type l \) 2>/dev/null | wc -l | tr -d ' ')
+    sz=$(du -sh "$BK_ROOT/$b" 2>/dev/null | cut -f1)
+    printf '  %-3s %-44s %7s %6s  %s\n' "$i" "$b" "$sz" "$n" "$kind"
+  done
+  echo "Restaurar: autobspwn-update --rollback [N|nombre]   (sin nada = el más reciente de update/instalación)"
+}
+
+# backup-relative path → destination under $HOME
+bk_dest() {
+  local rel=$1 top=${1%%/*}
+  if [ "$top" = local-bin ]; then printf '%s\n' "$HOME/.local/bin/${rel#local-bin/}"
+  elif [[ $CFG_DIRS == *" $top "* ]] && [ "$top" != "$rel" ]; then printf '%s\n' "$HOME/.config/$rel"
+  else printf '%s\n' "$HOME/$rel"; fi
+}
+
+reload_session() {
+  local uid; uid=$(id -u)
+  [ "${AUTOBSPWN_NO_RELOAD:-0}" = 1 ] || [ -z "${DISPLAY:-}" ] && return 0
+  if pgrep -u "$uid" -x bspwm >/dev/null 2>&1 && command -v bspc >/dev/null 2>&1; then
+    bspc wm -r >/dev/null 2>&1 && echo "[+] bspwm recargado (relanza polybar)"
+  elif pgrep -u "$uid" -x polybar >/dev/null 2>&1 && [ -x "$HOME/.config/polybar/launch.sh" ]; then
+    setsid -f "$HOME/.config/polybar/launch.sh" >/dev/null 2>&1 </dev/null || true
+  fi
+  if pgrep -u "$uid" -x sxhkd >/dev/null 2>&1; then pkill -USR1 -u "$uid" -x sxhkd 2>/dev/null || true; fi
+  return 0
+}
+
+do_rollback() {
+  local pick=$1 b='' src rel dst snap n=0 same=0 kept=0
+  mapfile -t bks < <(backups)
+  [ ${#bks[@]} -gt 0 ] || { echo "[-] No hay backups de AutoBSPWN en $BK_ROOT" >&2; return 1; }
+  if [ -z "$pick" ]; then
+    for b in "${bks[@]}"; do [[ $b == *-rollback ]] || break; done
+    [[ $b == *-rollback ]] && b=${bks[0]}
+  elif [[ $pick =~ ^[0-9]+$ ]]; then
+    (( pick >= 1 && pick <= ${#bks[@]} )) || { echo "[-] No existe el backup número $pick (--list-backups)" >&2; return 1; }
+    b=${bks[$((pick - 1))]}
+  else
+    pick=${pick%/}; pick=${pick##*/}
+    [ -d "$BK_ROOT/$pick" ] && [[ $pick == autobspwn-backup-* ]] || { echo "[-] No existe $BK_ROOT/$pick (--list-backups)" >&2; return 1; }
+    b=$pick
+  fi
+  src="$BK_ROOT/$b"
+  # a fresh, never reused snapshot dir (two rollbacks in the same second must not collide)
+  local ts k=2; ts=$(date +%Y%m%d-%H%M%S)
+  snap="$BK_ROOT/autobspwn-backup-$ts-rollback"
+  while ! mkdir "$snap" 2>/dev/null; do snap="$BK_ROOT/autobspwn-backup-$ts-$k-rollback"; k=$((k + 1)); done
+  echo "[*] Restaurando $b"
+  while IFS= read -r -d '' f; do
+    rel=${f#"$src"/}
+    dst=$(bk_dest "$rel")
+    if [[ ${dst#"$HOME"/} =~ $KEEP_RE ]]; then kept=$((kept + 1)); continue; fi
+    # already identical (same content, or the same symlink) → nothing to do: idempotent
+    if [ -L "$f" ]; then
+      [ -L "$dst" ] && [ "$(readlink "$f")" = "$(readlink "$dst")" ] && { same=$((same + 1)); continue; }
+    elif [ -f "$dst" ] && [ ! -L "$dst" ] && cmp -s "$f" "$dst"; then
+      same=$((same + 1)); continue
+    fi
+    # save what is there now (same layout → restorable with --rollback <snapshot>)
+    if [ -e "$dst" ] || [ -L "$dst" ]; then
+      mkdir -p "$(dirname "$snap/$rel")"
+      cp -a "$dst" "$snap/$rel" 2>/dev/null || true
+    fi
+    mkdir -p "$(dirname "$dst")"
+    if ! cp -a --remove-destination "$f" "$dst" 2>/dev/null; then
+      echo "[!] No pude restaurar ${dst/#"$HOME"/\~}" >&2; continue
+    fi
+    n=$((n + 1))
+  done < <(find "$src" \( -type f -o -type l \) -print0 2>/dev/null)
+  rmdir "$snap" 2>/dev/null || true   # nothing had to be saved
+  if [ "$n" -eq 0 ]; then
+    echo "[+] Nada que restaurar: ya coincide con $b ($same archivos)"
+  else
+    echo "[+] $n archivos restaurados desde $b ($same ya iguales; $kept de tus datos sin tocar)"
+    echo "    Lo que había antes quedó en ${snap/#"$HOME"/\~}"
+    reload_session
+  fi
+  return 0
+}
+
+if [ "$list_bk" = 1 ]; then list_backups; exit $?; fi
+if [ "$rollback" = 1 ]; then do_rollback "$rb_pick"; exit $?; fi
 
 is_repo() { [ -n "${1:-}" ] && [ -f "$1/Install.sh" ] && grep -q 'AutoBSPWN' "$1/Install.sh" 2>/dev/null; }
 

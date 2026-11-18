@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.3.0 — Target HUD for polybar (reads what setFocus writes).
+# AutoBSPWN v3.4.0 — Target HUD for polybar (reads what setFocus writes).
 # v3.3: the whole section turns red when the target is OUT of its scope.conf (scope-check).
 #   (no args)  print the HUD label
 #   --copy     copy focus IP      --clear   run clearFocus
@@ -24,6 +24,7 @@ case "${1:-}" in
     ;;
   --copy)
     [ -n "$IP" ] || exit 0
+    present_mode && exit 0
     { printf '%s' "$IP" | xclip -selection clipboard 2>/dev/null \
       || printf '%s' "$IP" | xsel -ib 2>/dev/null; } \
       && notify-send -a AutoBSPWN AutoBSPWN "Copiado: $IP" 2>/dev/null
@@ -36,6 +37,11 @@ alert=$(polycolor alert '#f38ba8')
 fg=$(polycolor foreground '#cdd6f4')
 if [ -z "$IP" ]; then
   if [ "${AB_BAR_COMPACT:-0}" = 1 ]; then echo "%{F$muted}󰓾%{F-}"; else echo "%{F$muted}󰓾 sin target%{F-}"; fi
+  exit 0
+fi
+# Presentation mode (Super+F12): never show the target on screen
+if present_mode; then
+  echo "%{F$muted}󰓾 target oculto%{F-}"
   exit 0
 fi
 # No name from setFocus? use /etc/hosts (no DNS: a reverse lookup over VPN can hang the bar)

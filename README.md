@@ -7,7 +7,7 @@ Barra limpia y redondeada · dashboard eww · animaciones y blur · bloqueo dese
 
 <br>
 
-![Versión](https://img.shields.io/badge/versión-3.3.1-B39DDB?style=for-the-badge)
+![Versión](https://img.shields.io/badge/versión-3.4.0-B39DDB?style=for-the-badge)
 ![Parrot](https://img.shields.io/badge/Parrot_OS-Home_%7C_Security-16B1C6?style=for-the-badge&logo=parrotsecurity&logoColor=white)
 ![Kali](https://img.shields.io/badge/Kali-compatible-557C94?style=for-the-badge&logo=kalilinux&logoColor=white)
 ![BSPWM](https://img.shields.io/badge/WM-bspwm-8A5CF6?style=for-the-badge)
@@ -25,7 +25,7 @@ Barra limpia y redondeada · dashboard eww · animaciones y blur · bloqueo dese
 ## Contenido
 
 - [Instalación](#instalación) · [Actualizar](#actualizar)
-- [Qué incluye](#qué-incluye) · [Novedades 3.3.1](#novedades-331) · [Novedades 3.3.0](#novedades-330)
+- [Qué incluye](#qué-incluye) · [Novedades 3.4.0](#novedades-340) · [Novedades 3.3.1](#novedades-331) · [Novedades 3.3.0](#novedades-330)
 - [Atajos esenciales](#atajos-esenciales)
 - [Flujo de pentest](#flujo-de-pentest)
 - [Herramientas de Parrot Security](#herramientas-de-parrot-security-opcional)
@@ -83,6 +83,7 @@ Hace `git pull --ff-only` en tu clon de AutoBSPWN y luego `./Install.sh --update
 - Alias y exports propios: ponlos en `~/.zshrc.local` (nunca se toca) y así `.zshrc` sigue recibiendo mejoras.
 - Encuentra el clon en `~/.config/autobspwn/repo` (lo escribe el instalador), `$AUTOBSPWN_REPO`, `~/AutoBSPWN`, `~/git/`, `~/tools/`, `~/Downloads/`… Si no hay ninguno te dice cómo clonarlo: `git clone https://github.com/Josue-Quiroa/AutoBSPWN ~/AutoBSPWN && autobspwn-update --repo ~/AutoBSPWN`.
 - `autobspwn-update --no-pull` sincroniza sin tocar git; si el pull no es fast-forward (cambios locales) no hace nada y te lo explica.
+- ¿Algo salió mal? `autobspwn-update --rollback` vuelve a los dotfiles de antes del último update (`--list-backups` para elegir otro) y `autobspwn-doctor` revisa dependencias y configs.
 
 ---
 
@@ -101,6 +102,19 @@ Hace `git pull --ff-only` en tu clon de AutoBSPWN y luego `./Install.sh --update
 | 🔎 **Rofi** | Menús compactos con iconos y esquinas redondeadas |
 | 🎯 **Pentest** | Target HUD con targets guardados, comandos rápidos, **scope guard**, recon `tscan`, **loot ledger** y timeline por target; VPN/lab switcher, portapapeles, launcher de tools |
 | ⚡ **Extras** | Calendario, hoja de atajos, capturas, menú de escritorio, scratchpad con hasta 4 terminales tmux (Alt+1…4) |
+
+### Novedades 3.4.0
+
+<details open>
+<summary>Doctor, rollback, modo presentación, notas rápidas y HiDPI / multi-monitor</summary>
+
+- **`autobspwn-doctor`**: revisa programas y versiones (polybar, tmux, eww, xdotool, yad, greenclip, notify-send, dunstctl…), fuentes, los configs desplegados contra el manifest (borrados / editados por ti), los `*.autobspwn-new` pendientes, permisos y backups. Salida `OK / WARN / FAIL` con la orden para arreglarlo; exit `0` todo bien · `1` avisos · `2` fallos. Nunca usa sudo ni cambia nada. `--quiet` muestra sólo los problemas.
+- **`autobspwn-update --rollback`**: vuelve a los dotfiles de antes del último update (`--list-backups` los lista numerados; `--rollback N` o `--rollback <nombre>` elige otro). Tus targets, favoritos, focus y comandos rápidos no se tocan, lo que había se guarda antes en un backup `…-rollback` (así el rollback también se deshace) y repetirlo no cambia nada. Recarga bspwm/sxhkd/polybar si corren.
+- **Modo presentación / grabación** (`Super`+`F12`): la barra deja de mostrar el target, la IP de la VPN y la IP local, las notificaciones de dunst se pausan (`dunstctl set-paused`) y aparece **REC** en rojo (clic = salir). Se guarda en `~/.config/autobspwn/state`, así que sigue activo tras recargar o reiniciar.
+- **Notas rápidas** (`Super`+`Alt`+`n`, o `note texto` en la terminal): una línea con fecha y hora al `~/targets/<ip>/notes.md` del target activo (y una entrada en su `timeline.tsv`, sin el texto) o a `~/notes/inbox.md` si no hay target. El texto y el nombre del target nunca se ejecutan.
+- **HiDPI y multi-monitor automáticos** (`monitors.sh`): DPI por monitor a partir del tamaño físico que da `xrandr` (96/120/144/168/192; en VMs 96, o 192 si la pantalla es 4K) → `Xft.dpi` (kitty y GTK), DPI de rofi y una polybar por monitor con altura y fuentes escaladas. Al conectar o desconectar un monitor lo enciende/apaga, reparte los escritorios (2 monitores: I–V / VI–X; `Super`+`1…0` va al escritorio global) y relanza las barras. Ajustes en `~/.config/autobspwn/state`: `dpi=144` (forzar), `desktops=each` (I–X en cada monitor, como antes), `xrandr=off` (no tocar salidas).
+
+</details>
 
 ### Novedades 3.3.1
 
@@ -172,7 +186,8 @@ La lista completa (≈80 atajos + comandos) está en **[`ATAJOS.md`](ATAJOS.md)*
 | `Super`+`flechas` / `h j k l` | Mover el foco (`Shift` mueve, `Alt` redimensiona, `Alt`+`Shift` encoge) |
 | `Super`+`s` · `Super`+`Shift`+`s` | 🪟 Ventana flotante↔mosaico · escritorio en modo flotante |
 | `Super`+arrastre izq. / der. / central | Mover · redimensionar (esquina) · redimensionar (lado) |
-| `Super`+`1`…`0` | Cambiar de escritorio |
+| `Super`+`1`…`0` | Cambiar de escritorio (con varios monitores, I–X repartidos entre ellos) |
+| `Super`+`F12` · `Super`+`Alt`+`n` | 🎥 Modo presentación (oculta IPs) · 📝 nota rápida |
 | `Super`+`F2` | 📊 Dashboard eww (`Esc` o `Super`+`F2` lo cierran) |
 | `Super`+`q` · `Super`+`Shift`+`x` | Cerrar ventana · 🔒 bloquear |
 

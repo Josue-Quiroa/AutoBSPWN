@@ -1,4 +1,4 @@
-# AutoBSPWN v3.3.0 shared helpers for the rofi menus (source me; do not execute).
+# AutoBSPWN v3.4.0 shared helpers for the rofi menus (source me; do not execute).
 # shellcheck shell=bash disable=SC2034
 
 AB_TARGETS="${AUTOBSPWN_TARGETS:-$HOME/targets}"
@@ -347,4 +347,82 @@ ab_root() {
     return $?
   fi
   ab_term_hold sudo "$@"
+}
+
+# ---- persistent state: ~/.config/autobspwn/state (key=value, one per line) -----------------
+#   present=0|1   presentation / recording mode       dpi=auto|96|120|...   desktops=split|each
+AB_STATE="${AUTOBSPWN_STATE:-$HOME/.config/autobspwn/state}"
+
+ab_state_get() {   # ab_state_get <key> [default]
+  local k=$1 d=${2:-} v=''
+  if [ -r "$AB_STATE" ]; then
+    v=$(awk -v k="$k" 'index($0, k "=") == 1 { v = substr($0, length(k) + 2) } END { print v }' "$AB_STATE" 2>/dev/null)
+  fi
+  printf '%s\n' "${v:-$d}"
+}
+
+ab_state_set() {   # ab_state_set <key> <value>   (atomic rewrite; other keys kept)
+  local k=$1 v=${2:-} tmp
+  [[ $k =~ ^[a-z][a-z0-9_]*$ ]] || return 1
+  v=${v//[$'\r\n']/ }
+  mkdir -p "$(dirname "$AB_STATE")" 2>/dev/null || return 1
+  tmp=$(mktemp "$AB_STATE.XXXXXX") || return 1
+  { [ -r "$AB_STATE" ] && awk -v k="$k" 'index($0, k "=") != 1' "$AB_STATE"; printf '%s=%s\n' "$k" "$v"; } >"$tmp" 2>/dev/null
+  mv -f "$tmp" "$AB_STATE"
+}
+
+# presentation mode on? (hide IPs / target / VPN in the bar, notifications paused)
+ab_present() { [ "$(ab_state_get present 0)" = 1 ]; }
+
+# text for rofi -mesg / Pango markup (target names, scope reasons…)
+ab_markup_escape() {
+  local s=${1:-}
+  s=${s//&/&amp;}; s=${s//</&lt;}; s=${s//>/&gt;}
+  printf '%s' "$s"
+}
+
+# text for a polybar label: neutralise %{…} format tags (a hostile name could add %{A1:cmd:})
+ab_polybar_escape() {
+  local s=${1:-}
+  s=${s//'%{'/'%%{'}    # polybar ≥ 3.6: "%%{" prints a literal "%{"
+  printf '%s' "$s"
+}
+
+# ---- HiDPI ---------------------------------------------------------------------------------
+# ab_calc_dpi <width px> <width mm>  → 96 | 120 | 144 | 168 | 192
+# Physical size when it is sane; VMs report 0 mm (or nonsense) → 96, or 192 from 3200 px wide.
+ab_calc_dpi() {
+  local px=${1:-0} mm=${2:-0} raw=0
+  [[ $px =~ ^[0-9]+$ ]] || px=0
+  [[ $mm =~ ^[0-9]+$ ]] || mm=0
+  if (( px > 0 && mm >= 100 )); then raw=$(( px * 254 / (mm * 10) )); fi
+  if (( raw < 70 || raw > 400 )); then
+    if (( px >= 3200 )); then echo 192; else echo 96; fi
+    return 0
+  fi
+  if   (( raw < 125 )); then echo 96
+  elif (( raw < 150 )); then echo 120
+  elif (( raw < 175 )); then echo 144
+  elif (( raw < 200 )); then echo 168
+  else echo 192
+  fi
+}
+
+# ab_scale <px at 96 dpi> <dpi>  → px scaled (rounded)
+ab_scale() { echo $(( (${1:-0} * ${2:-96} + 48) / 96 )); }
+
+# ---- multi-monitor ---------------------------------------------------------------------------
+# ab_split_desktops <monitors>  → one line per monitor with its desktop names (I…X split in
+# order: 2 monitors → I–V / VI–X; 3 → I–IV / V–VII / VIII–X). More than 10 monitors → D11…
+ab_split_desktops() {
+  local n=${1:-1} names=(I II III IV V VI VII VIII IX X) i j k=0 per rem cnt line
+  [[ $n =~ ^[0-9]+$ ]] && (( n >= 1 )) || n=1
+  per=$(( 10 / n )); rem=$(( 10 % n ))
+  for (( i = 0; i < n; i++ )); do
+    cnt=$per; (( i < rem )) && cnt=$((cnt + 1))
+    line=''
+    if (( cnt == 0 )); then line="D$((i + 1))"; fi
+    for (( j = 0; j < cnt; j++ )); do line+="${line:+ }${names[$k]}"; k=$((k + 1)); done
+    printf '%s\n' "$line"
+  done
 }

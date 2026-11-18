@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.3.1 - BSPWM desktop installer
+# AutoBSPWN v3.4.0 - BSPWM desktop installer
 # Target: Parrot OS Home Edition (Parrot 6 "lory" / Debian 12 MATE and Parrot 7 "echo" /
 #         Debian 13 KDE). Also Parrot Security and Kali Linux.
+# v3.4.0: autobspwn-doctor, autobspwn-update --rollback, presentation mode (Super+F12), quick
+#       notes (Super+Alt+n), automatic HiDPI + multi-monitor (monitors.sh).
 # v3.3.1: Super+u scratchpad with up to 4 tmux terminals as tabs (~/.config/autobspwn/scratch.tmux.conf)
 # v3.3.0: --update / autobspwn-update (config-only sync, keeps your edited files), scope guard
 #       (scope.conf, scope-check, nmap/ffuf wrappers, red target in the bar), tscan recon
@@ -38,7 +40,7 @@ cd "$SCRIPT_DIR"
 
 : "${USER:=$(id -un)}"
 export USER
-VERSION="3.3.1"
+VERSION="3.4.0"
 NICKNAME="${NICKNAME:-}"   # v3: ignored (wallpapers no longer carry text); kept so old commands still work
 SKIP_UPGRADE=0
 SKIP_FONTS=0
@@ -87,6 +89,8 @@ Ejemplos:
   ./Install.sh -y --tools basic --skip-upgrade
   ./Install.sh --tools custom:web,password,wireless
   ./Install.sh --update                        # actualizar sólo los dotfiles (o: autobspwn-update)
+  autobspwn-update --rollback                  # volver al backup del último update
+  autobspwn-doctor                             # revisar dependencias y configs
 USAGE
 }
 
@@ -892,9 +896,9 @@ ensure_path_file() {
 # file is kept and the new version is written next to it as <file>.autobspwn-new.
 # Files theme-sync regenerates are always replaced (the theme is re-applied right after), and
 # the theme-sync block inside dunstrc is ignored when comparing.
-AB_BIN_SCRIPTS="setFocus clearFocus targetFav polybar-theme extractHosts theme-sync autobspwn-notifyd scope-check tscan loot autobspwn-update"
+AB_BIN_SCRIPTS="setFocus clearFocus targetFav polybar-theme extractHosts theme-sync autobspwn-notifyd scope-check tscan loot autobspwn-update autobspwn-doctor note"
 AB_MANIFEST="$HOME/.config/autobspwn/manifest.tsv"
-AB_THEME_OWNED=" .config/polybar/colors.ini .config/kitty/theme.conf .config/rofi/colors.rasi .config/eww/colors.scss "
+AB_THEME_OWNED=" .config/rofi/dpi.rasi .config/polybar/colors.ini .config/kitty/theme.conf .config/rofi/colors.rasi .config/eww/colors.scss "
 declare -gA AB_MAN_OLD=() AB_MAN_NEW=()
 KEPT_FILES=()
 
@@ -1007,6 +1011,7 @@ deploy_configs() {
   [ -f "$SCRIPT_DIR/config/autobspwn/scratch.tmux.conf" ] && \
     deploy_file "$SCRIPT_DIR/config/autobspwn/scratch.tmux.conf" "$HOME/.config/autobspwn/scratch.tmux.conf"
   printf '%s\n' "$SCRIPT_DIR" >"$HOME/.config/autobspwn/repo"
+  printf '%s\n' "$VERSION" >"$HOME/.config/autobspwn/version"
 
   # First install only (keeps the user's own settings)
   if [ ! -f "$HOME/.config/greenclip.toml" ] && [ -f "$SCRIPT_DIR/config/greenclip/greenclip.toml" ]; then
@@ -1272,7 +1277,7 @@ update_main() {
   reload_session
   echo
   ok "AutoBSPWN $VERSION sincronizado"
-  info "Backup: $BACKUP_DIR"
+  info "Backup: $BACKUP_DIR (deshacer: autobspwn-update --rollback)"
   info "Log:    $LOG_FILE"
   if [ ${#WARNINGS[@]} -gt 0 ]; then
     echo -e "${YELLOW}Avisos (${#WARNINGS[@]}):${NC}"
@@ -1323,7 +1328,7 @@ BANNER
 
   echo
   ok "Instalación AutoBSPWN $VERSION terminada"
-  info "Backup: $BACKUP_DIR"
+  info "Backup: $BACKUP_DIR (deshacer: autobspwn-update --rollback)"
   info "Log:    $LOG_FILE"
   if [ ${#WARNINGS[@]} -gt 0 ]; then
     echo -e "${YELLOW}Avisos (${#WARNINGS[@]}):${NC}"
@@ -1342,6 +1347,8 @@ BANNER
   echo "  9. Calendario: clic en el reloj (o Super+Alt+c) · Scratchpad: Super+u"
   echo " 10. Ventanas: Super+s flotante↔mosaico · Super+Shift+s escritorio flotante · Super+Alt+flechas redimensionar"
   echo " 11. Dashboard: Super+F2 (Esc cierra) · Bloquear: Super+Shift+x · Actualizar: autobspwn-update"
+  echo "     Revisar: autobspwn-doctor · Deshacer el último update: autobspwn-update --rollback"
+  echo "     Modo presentación: Super+F12 · Nota rápida: Super+Alt+n (o: note texto)"
   [ "$TOOLS_MODE" = none ] && echo " 12. Tools de Parrot Security cuando quieras: ./Install.sh -y --skip-upgrade --tools basic"
   echo
 }

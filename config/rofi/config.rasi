@@ -1,4 +1,4 @@
-/* AutoBSPWN rofi v3.3.0 — compact centered launcher with a colored search bar
+/* AutoBSPWN rofi v3.4.0 — compact centered launcher with a colored search bar
    (look inspired by r1vs3c/auto-bspwm; own theme). Colors: colors.rasi (theme-sync). */
 configuration {
   modi: "drun,run,window,ssh";
@@ -34,6 +34,8 @@ configuration {
   transparent: #00000000;
 }
 @import "colors.rasi"
+/* v3.4 HiDPI: monitors.sh writes the DPI here (96 dpi = empty file) */
+@import "dpi.rasi"
 * { background-color: transparent; text-color: @fg; }
 window {
   background-color: @bg;

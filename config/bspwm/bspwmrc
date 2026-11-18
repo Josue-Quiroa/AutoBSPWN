@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN bspwmrc v3.3.1 (gaps / thin borders / docked bar inspired by r1vs3c/auto-bspwm)
+# AutoBSPWN bspwmrc v3.4.0 (gaps / thin borders / docked bar inspired by r1vs3c/auto-bspwm)
 export PATH="$HOME/.local/bin:$PATH"
 export _JAVA_AWT_WM_NONREPARENTING=1
 
@@ -33,8 +33,14 @@ pgrep -u "$(id -u)" -x sxhkd >/dev/null 2>&1 || sxhkd &
 # Cursor (avoids the default X "X" pointer)
 command -v xsetroot >/dev/null 2>&1 && xsetroot -cursor_name left_ptr
 
-# Desktops: I–X on every monitor (VMs usually have one)
-if command -v bspc >/dev/null 2>&1; then
+# Monitors (v3.4): new outputs on / unplugged off, Xft.dpi + rofi DPI (HiDPI) and desktops
+# I–X split across the monitors (state desktops=each → I–X on every monitor, as before 3.4).
+# monitors.sh --watch keeps doing it when you plug / unplug a screen (one instance).
+AB_MON="$HOME/.config/bspwm/scripts/monitors.sh"
+if [ -x "$AB_MON" ] && command -v bspc >/dev/null 2>&1; then
+  "$AB_MON" --apply --no-bar
+  setsid -f "$AB_MON" --watch >/dev/null 2>&1 </dev/null
+elif command -v bspc >/dev/null 2>&1; then
   if mons=$(bspc query -M --names 2>/dev/null) && [ -n "$mons" ]; then
     for m in $mons; do
       bspc monitor "$m" -d I II III IV V VI VII VIII IX X
@@ -178,6 +184,10 @@ start_once nm-applet nm-applet
 [ -x "$HOME/.config/bspwm/scripts/clipboard.sh" ] && "$HOME/.config/bspwm/scripts/clipboard.sh" --daemon
 
 [ -x "$HOME/.config/polybar/launch.sh" ] && "$HOME/.config/polybar/launch.sh" &
+
+# Presentation mode (Super+F12) survives reloads / reboots: re-pause dunst once it is up
+[ -x "$HOME/.config/bspwm/scripts/present-mode.sh" ] && \
+  { sleep 2; "$HOME/.config/bspwm/scripts/present-mode.sh" --restore; } >/dev/null 2>&1 &
 
 command -v vmware-user >/dev/null 2>&1 && start_once vmware-user vmware-user
 if command -v VBoxClient-all >/dev/null 2>&1; then

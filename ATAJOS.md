@@ -1,5 +1,5 @@
-<!-- autobspwn-atajos v3.3.1 — generado con: ~/.config/bspwm/scripts/keys-help.sh --markdown -->
-# AutoBSPWN 3.3.1 — Atajos y comandos
+<!-- autobspwn-atajos v3.4.0 — generado con: ~/.config/bspwm/scripts/keys-help.sh --markdown -->
+# AutoBSPWN 3.4.0 — Atajos y comandos
 
 **Super** = tecla Windows. Esta misma lista sale en pantalla con **Super + F1** o **Super + /**
 (puedes escribir para filtrar y Enter ejecuta la acción). Se genera leyendo
@@ -21,6 +21,12 @@ Notas:
 - **Polybar**: clic en el reloj = calendario · clic en el icono de la izquierda = apps
   (derecho: info del sistema) · rueda sobre el icono de paleta = cambiar tema
   (clic derecho: wallpapers) · clic en target/VPN/IP = copiar/menú.
+- **Modo presentación** (`Super + F12`): oculta target, IP de la VPN y de la red en la barra y
+  pausa las notificaciones; la barra muestra **REC** en rojo (clic = salir). Se recuerda tras
+  reiniciar (`~/.config/autobspwn/state`).
+- **Varios monitores**: los escritorios I–X se reparten entre los monitores (2 → I–V / VI–X) y
+  `Super + 1…0` va al escritorio global; una barra por monitor y DPI automático (HiDPI).
+  `desktops=each` en `~/.config/autobspwn/state` vuelve a I–X en cada monitor.
 
 ### Terminal y apps
 
@@ -44,6 +50,8 @@ Notas:
 | `` Super + Shift + i `` | Fijar target (setFocus IP nombre) |
 | `` Super + Shift + c `` | Quitar target (clearFocus) |
 | `` Super + Alt + i `` | Targets guardados (favoritos): elegir uno lo hace el target activo |
+| `` Super + Alt + n `` | Nota rápida: una línea a las notas del target (o a ~/notes/inbox.md) |
+| `` Super + F12 `` | Modo presentación / grabación: oculta IPs, target y VPN y pausa notificaciones |
 | `` Super + v `` | VPN / lab switcher |
 | `` Super + Shift + v `` | Reconectar la última VPN |
 | `` Super + p `` | Launcher de tools de pentest |
@@ -186,6 +194,9 @@ Notas:
 | `nmap …` / `ffuf …` | Pasan por el guardia de scope; `--force` para lanzar fuera de scope |
 | `loot <etiqueta> archivo` · `cmd \| loot <etiqueta>` · `loot --list` | Guarda loot en `~/targets/<ip>/loot/` con hora, herramienta, origen y sha256 |
 | `autobspwn-update` | `git pull` del repo + `Install.sh --update` (sólo configs; conserva tus ediciones) |
+| `autobspwn-update --list-backups` · `--rollback [N]` | Ver los backups · volver al de antes del último update (tus targets no se tocan) |
+| `autobspwn-doctor [--quiet]` | Revisa dependencias, versiones y configs: OK / WARN / FAIL (exit 0/1/2) |
+| `note <texto>` | Nota rápida al `notes.md` del target (o `~/notes/inbox.md`) = Super+Alt+n |
 | `mkt <nombre>` | Crea y entra en `~/Machines/<nombre>/{nmap,content,exploits,scripts,loot}` |
 | `ports archivo.nmap` | Lista los puertos abiertos separados por coma (para `nmap -p`) |
 | `extractHosts [archivo]` | Extrae las IPs únicas de un archivo o de la entrada estándar |

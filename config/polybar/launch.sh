@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.3.0
+# AutoBSPWN v3.4.0
 # Launch polybar on every monitor. Tray only on the first bar.
 # Kali (polybar 3.7+) uses internal/tray; Parrot/Debian 12 (3.6) uses tray-position.
 
@@ -52,14 +52,26 @@ mon_width() {
   printf '%s\n' "${w:-1920}"
 }
 
+# v3.4 HiDPI: per-monitor DPI from monitors.sh (xrandr physical size; state dpi=N forces it)
+mon_dpi() {
+  local d=96 m="$HOME/.config/bspwm/scripts/monitors.sh"
+  [ -x "$m" ] && d=$("$m" --dpi "$1" 2>/dev/null)
+  [[ $d =~ ^[0-9]+$ ]] && [ "$d" -ge 48 ] || d=96
+  printf '%s\n' "$d"
+}
+
 launch_bar() {
-  local mon=$1 tray_mod=$2 tray_pos=$3 bar=main compact=${AUTOBSPWN_BAR_COMPACT:-}
+  local mon=$1 tray_mod=$2 tray_pos=$3 bar=main compact=${AUTOBSPWN_BAR_COMPACT:-} dpi w
   [ "$tray_mod" = tray ] && bar=main-tray
+  dpi=$(mon_dpi "$mon")
   if [ -z "$compact" ]; then
     compact=0
-    [ "$(mon_width "$mon")" -lt 1366 ] 2>/dev/null && compact=1
+    # width in 96-dpi pixels: a 2560 px HiDPI laptop is as narrow as a 1280 px one
+    w=$(mon_width "$mon")
+    [ $(( w * 96 / dpi )) -lt 1366 ] 2>/dev/null && compact=1
   fi
-  AB_BAR_COMPACT="$compact" MONITOR="$mon" POLYBAR_TRAY_POS="$tray_pos" polybar -q -r "$bar" -c "$CFG" &
+  AB_BAR_COMPACT="$compact" MONITOR="$mon" POLYBAR_TRAY_POS="$tray_pos" \
+    POLYBAR_DPI="$dpi" POLYBAR_HEIGHT="$(( (30 * dpi + 48) / 96 ))" polybar -q -r "$bar" -c "$CFG" &
 }
 
 first=1

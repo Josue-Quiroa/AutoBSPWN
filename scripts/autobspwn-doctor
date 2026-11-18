@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+# AutoBSPWN v3.4.0 — autobspwn-doctor: health check of the desktop (never uses sudo, changes nothing)
+#   autobspwn-doctor              full report: OK / WARN / FAIL / INFO
+#   autobspwn-doctor --quiet      only WARN and FAIL (+ summary)      --no-color   plain text
+# Checks: programs and versions (bspwm, sxhkd, polybar, tmux, eww, xdotool, yad, greenclip,
+# notify-send, dunstctl…), fonts, deployed configs vs ~/.config/autobspwn/manifest.tsv, pending
+# *.autobspwn-new files, executable scripts, presentation mode, backups and the repo version.
+# Exit code: 0 all OK · 1 only warnings · 2 at least one FAIL.
+set -uo pipefail
+
+quiet=0; color=1
+[ -t 1 ] || color=0
+for a in "$@"; do
+  case "$a" in
+    -q|--quiet) quiet=1 ;;
+    --no-color) color=0 ;;
+    -h|--help) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "autobspwn-doctor: opción desconocida: $a" >&2; exit 64 ;;
+  esac
+done
+export PATH="$HOME/.local/bin:$PATH"
+
+if [ "$color" = 1 ]; then G=$'\e[32m'; Y=$'\e[33m'; R=$'\e[31m'; B=$'\e[36m'; D=$'\e[2m'; N=$'\e[0m'
+else G=''; Y=''; R=''; B=''; D=''; N=''; fi
+n_ok=0; n_warn=0; n_fail=0
+ok()   { n_ok=$((n_ok + 1));     [ "$quiet" = 1 ] || printf '  %s[ OK ]%s %s\n' "$G" "$N" "$*"; }
+warn() { n_warn=$((n_warn + 1)); printf '  %s[WARN]%s %s\n' "$Y" "$N" "$*"; }
+fail() { n_fail=$((n_fail + 1)); printf '  %s[FAIL]%s %s\n' "$R" "$N" "$*"; }
+info() { [ "$quiet" = 1 ] || printf '  %s[INFO]%s %s\n' "$B" "$N" "$*"; }
+hint() { [ "$quiet" = 1 ] || printf '         %s%s%s\n' "$D" "$*" "$N"; }
+section() { [ "$quiet" = 1 ] || printf '\n%s\n' "$*"; }
+has() { command -v "$1" >/dev/null 2>&1; }
+# ver_ge <a> <b>: version a >= b
+ver_ge() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n1)" = "$2" ]; }
+first_ver() { grep -oE '[0-9]+(\.[0-9]+)+[a-z]?' | head -n1; }
+
+# need <level FAIL|WARN> <cmd> <what it is for> [package]
+need() {
+  local lvl=$1 c=$2 why=$3 pkg=${4:-$2}
+  if has "$c"; then ok "$c — $why"; return 0; fi
+  if [ "$lvl" = FAIL ]; then fail "$c no está — $why"; else warn "$c no está — $why"; fi
+  hint "sudo apt install $pkg"
+  return 1
+}
+
+V=$(cat "$HOME/.config/autobspwn/version" 2>/dev/null || echo '?')
+[ "$quiet" = 1 ] || printf '%sAutoBSPWN doctor%s — instalado: %s\n' "$B" "$N" "$V"
+
+# ---------------------------------------------------------------- system
+section "Sistema"
+if [ -r /etc/os-release ]; then
+  info "$(. /etc/os-release; printf '%s' "${PRETTY_NAME:-Linux}")"
+fi
+if [ -n "${DISPLAY:-}" ] && pgrep -u "$(id -u)" -x bspwm >/dev/null 2>&1; then ok "sesión bspwm activa ($DISPLAY)"
+else info "sin sesión bspwm activa en este terminal (normal desde una TTY/SSH)"; fi
+if printf '%s' "${SHELL:-}" | grep -q zsh; then ok "shell zsh"; else info "tu shell es ${SHELL:-?} (los comandos de terminal están en ~/.zshrc; en bash usa ~/.local/bin)"; fi
+[ "$(id -u)" -eq 0 ] && warn "estás como root: AutoBSPWN se usa con tu usuario normal"
+
+# ---------------------------------------------------------------- core
+section "Núcleo"
+need FAIL bspwm "gestor de ventanas"
+need FAIL sxhkd "atajos de teclado"
+if need FAIL polybar "barra"; then
+  pv=$(polybar -v 2>/dev/null | head -n1 | first_ver)
+  if [ -n "$pv" ] && ! ver_ge "$pv" 3.6; then fail "polybar $pv: hace falta 3.6 o más nueva"
+  elif [ -n "$pv" ]; then
+    if ver_ge "$pv" 3.7; then info "polybar $pv (bandeja: internal/tray)"; else info "polybar $pv (bandeja: tray-position)"; fi
+  fi
+fi
+need FAIL rofi "menús y lanzador"
+need FAIL kitty "terminal"
+need WARN picom "transparencias, sombras y animaciones"
+need FAIL dunst "notificaciones"
+need FAIL notify-send "avisos de los scripts" libnotify-bin
+need WARN dunstctl "pausar notificaciones (modo presentación)" dunst
+need WARN xdotool "scratchpad (Super+u) y utilidades de ventanas"
+need WARN feh "wallpaper"
+if has xclip || has xsel; then ok "xclip/xsel — portapapeles"; else fail "ni xclip ni xsel — copiar IPs, loot, etc."; hint "sudo apt install xclip"; fi
+if need WARN tmux "scratchpad con hasta 4 terminales"; then
+  tv=$(tmux -V 2>/dev/null | first_ver)
+  if [ -n "$tv" ] && ! ver_ge "$tv" 3.2; then warn "tmux $tv: el límite de 4 terminales del scratchpad necesita tmux 3.2+"
+  elif [ -n "$tv" ]; then info "tmux $tv"; fi
+fi
+
+# ---------------------------------------------------------------- extras
+section "Extras"
+if [ -x "$HOME/.local/bin/eww" ] && "$HOME/.local/bin/eww" --version >/dev/null 2>&1; then
+  ok "eww — dashboard ($("$HOME/.local/bin/eww" --version 2>/dev/null | head -n1))"
+elif has eww; then ok "eww — dashboard"
+else warn "eww no está o no arranca — dashboard (Super+d…)"; hint "./Install.sh --update (lo instala desde bin/)"; fi
+need WARN yad "calendario y diálogos"
+if has greenclip || [ -x "$HOME/.local/bin/greenclip" ] || has copyq; then ok "historial del portapapeles (greenclip/CopyQ)"
+else warn "sin greenclip ni CopyQ — historial del portapapeles (Super+c)"; hint "./Install.sh (descarga greenclip)"; fi
+need WARN jq "parsear JSON en scripts"
+need WARN i3lock "bloqueo de pantalla"
+if has magick || has convert; then ok "ImageMagick — fondo del bloqueo y miniaturas"; else warn "ImageMagick no está"; hint "sudo apt install imagemagick"; fi
+need WARN jgmenu "menú del escritorio"
+if has maim || has flameshot || has scrot; then ok "capturas de pantalla"; else warn "sin maim/flameshot/scrot — capturas"; fi
+need WARN xrandr "multi-monitor y HiDPI" x11-xserver-utils
+need WARN xrdb "Xft.dpi (HiDPI)" x11-xserver-utils
+need WARN zsh "shell con los comandos de AutoBSPWN"
+if has nmap; then ok "nmap — tscan y comandos rápidos"; else info "nmap no está: tscan no funcionará (sudo apt install nmap)"; fi
+if has fc-list; then
+  if fc-list 2>/dev/null | grep -qi 'JetBrainsMono Nerd'; then ok "fuente JetBrainsMono Nerd Font"
+  else warn "falta JetBrainsMono Nerd Font (iconos rotos en la barra)"; hint "./Install.sh (instala las Nerd Fonts)"; fi
+fi
+
+# ---------------------------------------------------------------- configs
+section "Configuración desplegada"
+MAN="$HOME/.config/autobspwn/manifest.tsv"
+THEME_OWNED=" .config/rofi/dpi.rasi .config/polybar/colors.ini .config/kitty/theme.conf .config/rofi/colors.rasi .config/eww/colors.scss "
+file_sum() {
+  awk '/^# >>> autobspwn-theme/ {s=1; next} /^# <<< autobspwn-theme/ {s=0; next} !s' "$1" 2>/dev/null \
+    | sha256sum | awk '{print $1}'
+}
+if [ -s "$MAN" ]; then
+  total=0; missing=0; edited=0
+  while IFS=$'\t' read -r rel sum; do
+    [ -n "$rel" ] && [ -n "$sum" ] || continue
+    total=$((total + 1))
+    f="$HOME/$rel"
+    if [ ! -e "$f" ]; then
+      missing=$((missing + 1)); warn "falta ~/$rel (borrado; ./Install.sh --update lo repone)"
+      continue
+    fi
+    [[ $THEME_OWNED == *" $rel "* ]] && continue
+    if [ "$(file_sum "$f")" != "$sum" ]; then
+      edited=$((edited + 1)); info "editado por ti (se conserva al actualizar): ~/$rel"
+    fi
+  done <"$MAN"
+  [ "$missing" -eq 0 ] && ok "$total archivos desplegados en su sitio ($edited editados por ti)"
+else
+  warn "no hay manifest (~/.config/autobspwn/manifest.tsv): AutoBSPWN 3.3+ no se ha instalado aún"
+  hint "./Install.sh   o   autobspwn-update"
+fi
+pending=()
+for d in "$HOME/.config/bspwm" "$HOME/.config/sxhkd" "$HOME/.config/polybar" "$HOME/.config/picom" \
+         "$HOME/.config/kitty" "$HOME/.config/rofi" "$HOME/.config/dunst" "$HOME/.config/eww" \
+         "$HOME/.config/autobspwn" "$HOME/.local/bin"; do
+  [ -d "$d" ] || continue
+  while IFS= read -r -d '' f; do pending+=("$f"); done < <(find "$d" -name '*.autobspwn-new' -type f -print0 2>/dev/null)
+done
+for f in "$HOME"/.zshrc.autobspwn-new "$HOME"/.p10k.zsh.autobspwn-new; do [ -f "$f" ] && pending+=("$f"); done
+if [ ${#pending[@]} -eq 0 ]; then ok "sin versiones nuevas pendientes (*.autobspwn-new)"
+else
+  for f in "${pending[@]}"; do
+    warn "versión nueva sin revisar: ${f/#"$HOME"/\~}"
+    hint "diff -u '${f%.autobspwn-new}' '$f'   (cópiala encima si la quieres, o bórrala)"
+  done
+fi
+noexec=()
+for f in "$HOME"/.config/bspwm/bspwmrc "$HOME"/.config/bspwm/scripts/*.sh "$HOME"/.config/polybar/launch.sh "$HOME"/.config/polybar/scripts/*.sh; do
+  [ -f "$f" ] || continue
+  case "$f" in */lib.sh|*/libcolors.sh) continue ;; esac
+  [ -x "$f" ] || noexec+=("$f")
+done
+if [ ${#noexec[@]} -eq 0 ]; then ok "scripts ejecutables"
+else for f in "${noexec[@]}"; do fail "sin permiso de ejecución: ${f/#"$HOME"/\~}"; hint "chmod +x '$f'"; done; fi
+if grep -q '@import "dpi.rasi"' "$HOME/.config/rofi/config.rasi" 2>/dev/null && [ ! -f "$HOME/.config/rofi/dpi.rasi" ]; then
+  fail "falta ~/.config/rofi/dpi.rasi (rofi mostrará un error)"; hint "./Install.sh --update"
+fi
+[ -f "$HOME/.config/autobspwn/scratch.tmux.conf" ] || warn "falta ~/.config/autobspwn/scratch.tmux.conf (scratchpad sin pestañas)"
+for c in setFocus tscan loot scope-check autobspwn-update; do
+  [ -x "$HOME/.local/bin/$c" ] || { warn "falta ~/.local/bin/$c"; hint "./Install.sh --update"; }
+done
+
+# ---------------------------------------------------------------- state
+section "Estado"
+ST="$HOME/.config/autobspwn/state"
+if [ -r "$ST" ] && grep -qx 'present=1' "$ST"; then warn "modo presentación ACTIVO: IPs ocultas y notificaciones en pausa (Super+F12)"
+else ok "modo presentación apagado"; fi
+if has dunstctl && [ "$(dunstctl is-paused 2>/dev/null)" = true ] && ! { [ -r "$ST" ] && grep -qx 'present=1' "$ST"; }; then
+  warn "dunst está en pausa sin modo presentación"; hint "dunstctl set-paused false"
+fi
+fi_ip=$(tr -d '[:space:]' 2>/dev/null <"$HOME/.config/bspwm/focus_ip" || true)
+[ -n "$fi_ip" ] && info "target activo: $fi_ip"
+T=${AUTOBSPWN_TARGETS:-$HOME/targets}
+if [ -d "$T" ]; then
+  perm=$(stat -c %a "$T" 2>/dev/null || echo '?')
+  if [ "$perm" = 700 ]; then ok "${T/#"$HOME"/\~} es privado (700)"; else warn "${T/#"$HOME"/\~} tiene permisos $perm (debería ser 700: loot y hashes)"; hint "chmod 700 '$T'"; fi
+fi
+mapfile -t bks < <(find "$HOME/.config" -maxdepth 1 -type d -name 'autobspwn-backup-*' 2>/dev/null | sort)
+if [ ${#bks[@]} -gt 0 ]; then
+  sz=$(du -sch "${bks[@]}" 2>/dev/null | tail -n1 | cut -f1)
+  if [ ${#bks[@]} -gt 15 ]; then warn "${#bks[@]} backups ($sz) en ~/.config/autobspwn-backup-*"; hint "autobspwn-update --list-backups · borra los viejos que no necesites"
+  else info "${#bks[@]} backups ($sz) · el último: ${bks[-1]##*/} (autobspwn-update --rollback)"; fi
+fi
+REPO_DIR=$(cat "$HOME/.config/autobspwn/repo" 2>/dev/null || true)
+if [ -n "$REPO_DIR" ] && [ -f "$REPO_DIR/VERSION" ]; then
+  rv=$(tr -d '[:space:]' <"$REPO_DIR/VERSION")
+  if [ "$V" != '?' ] && [ "$rv" != "$V" ] && ver_ge "$rv" "$V"; then warn "el clon ($REPO_DIR) tiene $rv y está instalada $V"; hint "autobspwn-update --no-pull"
+  else ok "clon del repo: $REPO_DIR ($rv)"; fi
+elif [ -n "$REPO_DIR" ]; then
+  warn "no encuentro el clon recordado: $REPO_DIR"; hint "autobspwn-update --repo <ruta del clon>"
+fi
+
+echo
+printf 'Resumen: %s%d OK%s · %s%d WARN%s · %s%d FAIL%s\n' "$G" "$n_ok" "$N" "$Y" "$n_warn" "$N" "$R" "$n_fail" "$N"
+if [ "$n_fail" -gt 0 ]; then exit 2; elif [ "$n_warn" -gt 0 ]; then exit 1; fi
+exit 0
