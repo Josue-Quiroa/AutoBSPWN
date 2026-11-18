@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN bspwmrc v3.4.0 (gaps / thin borders / docked bar inspired by r1vs3c/auto-bspwm)
+# AutoBSPWN bspwmrc v3.4.4 (gaps / thin borders / docked bar inspired by r1vs3c/auto-bspwm)
 export PATH="$HOME/.local/bin:$PATH"
 export _JAVA_AWT_WM_NONREPARENTING=1
 
@@ -35,7 +35,10 @@ command -v xsetroot >/dev/null 2>&1 && xsetroot -cursor_name left_ptr
 
 # Monitors (v3.4): new outputs on / unplugged off, Xft.dpi + rofi DPI (HiDPI) and desktops
 # I–X split across the monitors (state desktops=each → I–X on every monitor, as before 3.4).
-# monitors.sh --watch keeps doing it when you plug / unplug a screen (one instance).
+# monitors.sh --watch keeps doing it when you plug / unplug a screen: one instance (a reload
+# replaces the old watcher; pidfile + flock) and applies never overlap (flock). v3.4.4: in
+# VMware / VirtualBox a real mode change ("kick") makes the 1 ↔ 2 screen switch stick; it never
+# runs `bspc wm -r` itself (Super+Alt+Shift+r = monitors.sh --fix by hand).
 AB_MON="$HOME/.config/bspwm/scripts/monitors.sh"
 if [ -x "$AB_MON" ] && command -v bspc >/dev/null 2>&1; then
   "$AB_MON" --apply --no-bar

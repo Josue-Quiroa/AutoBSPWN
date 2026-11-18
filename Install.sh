@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.4.3 - BSPWM desktop installer
+# AutoBSPWN v3.4.4 - BSPWM desktop installer
 # Target: Parrot OS Home Edition (Parrot 6 "lory" / Debian 12 MATE and Parrot 7 "echo" /
 #         Debian 13 KDE). Also Parrot Security and Kali Linux.
+# v3.4.4: VMware / VirtualBox 1 <-> 2 screens: real mode change ("kick") + layout, once per
+#       transition; flock'd applies, single watcher, sxhkd reloaded; Super+Alt+Shift+r = --fix.
 # v3.4.3: VMware leaving 2-monitor / full-screen mode: ghost monitors removed (windows kept),
 #       geometry re-synced, outputs without a real mode ignored, 1 s debounce.
 # v3.4.2: Super+Alt+1..0 = desktops of the other monitor, delete quick notes (note --rm,
@@ -45,7 +47,7 @@ cd "$SCRIPT_DIR"
 
 : "${USER:=$(id -un)}"
 export USER
-VERSION="3.4.3"
+VERSION="3.4.4"
 NICKNAME="${NICKNAME:-}"   # v3: ignored (wallpapers no longer carry text); kept so old commands still work
 SKIP_UPGRADE=0
 SKIP_FONTS=0

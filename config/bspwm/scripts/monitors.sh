@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.4.3 — HiDPI + multi-monitor (automatic; bspwmrc runs it)
+# AutoBSPWN v3.4.4 — HiDPI + multi-monitor (automatic; bspwmrc runs it)
 #   monitors.sh [--apply]        new outputs on / unplugged off (xrandr, see policy), bspwm monitors
 #                                synced with xrandr, Xft.dpi + rofi DPI, desktops split across the
 #                                monitors, wallpaper repainted, one polybar per monitor
@@ -8,6 +8,8 @@
 #                                every 2 s, applies once the layout is stable for 1 s)
 #   monitors.sh --dpi [OUTPUT]   DPI for that output (default: primary)   --list   outputs
 #   monitors.sh --status         xrandr policy, outputs and bspwm monitors (diagnostics)
+#   monitors.sh --fix            "Reparar pantallas" (Super+Alt+Shift+r): forced mode kick + layout
+#   monitors.sh --layout         the kick / layout it would apply (VMware/VirtualBox, see below)
 # DPI: physical size from xrandr → 96/120/144/168/192 (VMs report 0 mm → 96, or 192 when the
 # screen is 3200+ px wide). Force it in ~/.config/autobspwn/state with dpi=144 (dpi=auto = default).
 # Desktops (state: desktops=split, default): I–X split in order (2 monitors: I–V / VI–X);
@@ -249,18 +251,180 @@ repaint_wallpaper() {
   fi
 }
 
+# ---------------------------------------------------------------- v3.4.4 VM "kick"
+# VMware (and VirtualBox) only really switch the guest between 1 and 2 screens, or back to the
+# native size after leaving full screen, when the MODE CHANGES: re-applying the same mode is
+# ignored, so the second screen stays black / half drawn although xrandr and bspwm agree.
+# Kick = primary output to another existing mode (1600x900, 1280x720 or any other), wait 1 s,
+# then the target layout: every connected output at its target mode, the primary at 0,0 with
+# --primary and the rest --right-of in order. Never `bspc wm -r` (it re-runs bspwmrc: loop).
+# Target mode: res=WxH (state) or AUTOBSPWN_RES, else the output's preferred mode (+), else
+# 1920x1080, else its first mode. vm_kick=off (state) disables it; xrandr=off too.
+
+SLEEP() { [ "${AB_MON_NOSLEEP:-0}" = 1 ] || sleep "$1"; }
+
+# modes: name <TAB> connected 0|1 <TAB> geometry|- <TAB> primary 0|1 <TAB> preferred|- <TAB> m1,m2,…
+modes_table() {
+  ab_has xrandr || return 0
+  xrandr --query 2>/dev/null | awk '
+    function flush() { if (name != "") print name "\t" conn "\t" geo "\t" prim "\t" pref "\t" ml }
+    /^[^ \t]+ (connected|disconnected)/ {
+      flush(); name = $1; conn = ($2 == "connected") ? 1 : 0; geo = "-"; prim = 0; pref = "-"; ml = ""
+      for (i = 3; i <= NF; i++) {
+        if ($i == "primary") prim = 1
+        else if (geo == "-" && $i ~ /^[0-9]+x[0-9]+\+[0-9]+\+[0-9]+$/) geo = $i
+      }
+      next }
+    /^[ \t]+[0-9]+x[0-9]+/ && name != "" {
+      m = $1; ml = ml (ml == "" ? "" : ",") m
+      for (i = 2; i <= NF; i++) if (index($i, "+") && pref == "-") pref = m
+      next }
+    END { flush() }'
+}
+
+in_vm() {
+  case "$(guest_agent)" in vmware*|VBox*|virtualbox*) return 0 ;; esac
+  case "$(virt)" in vmware|oracle) return 0 ;; esac
+  return 1
+}
+
+kick_enabled() {
+  [ "$(ab_state_get vm_kick auto)" = off ] && return 1
+  [ "$(ab_state_get xrandr auto)" = off ] && return 1
+  ab_has xrandr
+}
+
+# target_mode <preferred|-> <m1,m2,…>
+target_mode() {
+  local pref=$1 list=",$2," want=${AUTOBSPWN_RES:-}
+  [ -n "$want" ] || want=$(ab_state_get res auto)
+  if [[ $want =~ ^[0-9]+x[0-9]+$ ]] && [[ $list == *",$want,"* ]]; then echo "$want"; return 0; fi
+  if [ "$pref" != - ]; then echo "$pref"; return 0; fi
+  if [[ $list == *",1920x1080,"* ]]; then echo 1920x1080; return 0; fi
+  list=${list#,}; echo "${list%%,*}"
+}
+
+# intermediate_mode <target> <current|-> <m1,m2,…>  → another existing mode, or nothing
+intermediate_mode() {
+  local target=$1 cur=$2 m
+  local -a all
+  IFS=, read -r -a all <<<"$3"
+  for m in 1600x900 1280x720 "${all[@]}"; do
+    [ -n "$m" ] && [ "$m" != "$target" ] && [ "$m" != "$cur" ] || continue
+    [[ ",$3," == *",$m,"* ]] && { echo "$m"; return 0; }
+  done
+  for m in "${all[@]}"; do [ "$m" != "$target" ] && { echo "$m"; return 0; }; done
+  return 1
+}
+
+# layout_plan <modes_table file> → lines:  primary <name> <mode> <inter|->  ·  right <name> <mode>
+#   · off <name>   (lit but disconnected)   · want <name> <WxH+X+0>   (expected result)
+layout_plan() {
+  local f=$1 name conn geo prim pref ml first='' x=0 mode cur inter
+  local -a order=()
+  # primary first (the xrandr primary if connected, else the first connected output)
+  while IFS=$'\t' read -r name conn geo prim pref ml; do
+    [ "$conn" = 1 ] && [ -n "$ml" ] || continue
+    if [ "$prim" = 1 ]; then order=("$name" "${order[@]}"); else order+=("$name"); fi
+  done <"$f"
+  [ ${#order[@]} -gt 0 ] || return 0
+  for first in "${order[@]}"; do
+    IFS=$'\t' read -r name conn geo prim pref ml < <(awk -F'\t' -v n="$first" '$1 == n' "$f")
+    mode=$(target_mode "$pref" "$ml")
+    if [ "$first" = "${order[0]}" ]; then
+      cur=-; [ "$geo" != - ] && cur=${geo%%+*}
+      inter=$(intermediate_mode "$mode" "$cur" "$ml") || inter=-
+      echo "primary $name $mode $inter"
+    else
+      echo "right $name $mode"
+    fi
+    echo "want $name $mode+$x+0"
+    x=$(( x + ${mode%%x*} ))
+  done
+  awk -F'\t' '$2 == 0 && $3 != "-" { print "off " $1 }' "$f"
+}
+
+# layout_ok <modes file> <plan>  → 0 when every output already has its target geometry
+layout_ok() {
+  local f=$1 plan=$2 name w
+  ! grep -q '^off ' <<<"$plan" || return 1
+  while read -r _ name w; do
+    [ "$(awk -F'\t' -v n="$name" '$1 == n { print $3 }' "$f")" = "$w" ] || return 1
+  done < <(grep '^want ' <<<"$plan")
+  return 0
+}
+
+KICK_LAST="$AB_CACHE/monitors-kick.last"
+
+# maybe_kick [force]  → 0 when a kick was done
+maybe_kick() {
+  local force=${1:-} f plan key prev
+  kick_enabled || return 1
+  [ "$force" = force ] || in_vm || return 1
+  f=$(mktemp) || return 1
+  modes_table >"$f"
+  plan=$(layout_plan "$f")
+  if ! grep -q '^primary ' <<<"$plan"; then rm -f "$f"; return 1; fi
+  if [ "$force" != force ] && layout_ok "$f" "$plan"; then rm -f "$f"; return 1; fi
+  # once per transition: same connected outputs + same starting layout = already kicked
+  key="$(awk -F'\t' '$2 == 1 { printf "%s ", $1 }' "$f")| $(awk -F'\t' '$3 != "-" { printf "%s=%s ", $1, $3 }' "$f")"
+  prev=$(cat "$KICK_LAST" 2>/dev/null || true)
+  if [ "$force" != force ] && [ "$key" = "$prev" ]; then rm -f "$f"; return 1; fi
+  printf '%s\n' "$key" >"$KICK_LAST"
+  rm -f "$f"
+  run_kick "$plan"
+  return 0
+}
+
+run_kick() {
+  local plan=$1 act name mode inter prev=''
+  local -a cmd=()
+  read -r act name mode inter < <(grep '^primary ' <<<"$plan")
+  if [ "$inter" != - ]; then
+    xrandr --output "$name" --mode "$inter" 2>/dev/null || true
+    SLEEP 1
+  fi
+  cmd=(--output "$name" --mode "$mode" --pos 0x0 --primary); prev=$name
+  while read -r act name mode; do
+    case "$act" in
+      right) cmd+=(--output "$name" --mode "$mode" --right-of "$prev"); prev=$name ;;
+      off)   cmd+=(--output "$name" --off) ;;
+    esac
+  done < <(grep -E '^(right|off) ' <<<"$plan")
+  xrandr "${cmd[@]}" 2>/dev/null || true
+  SLEEP 1
+}
+
+APPLY_STAMP="$AB_CACHE/monitors-applied"
+
 apply() {
-  local bar=1
-  [ "${1:-}" = --no-bar ] && bar=0
+  local bar=1 kick=auto a
+  for a; do
+    case "$a" in --no-bar) bar=0 ;; --fix) kick=force ;; --no-kick) kick=no ;; esac
+  done
+  # one apply at a time (watcher, Super+Alt+Shift+r / --fix, bspwmrc)
+  exec 8>"$AB_CACHE/monitors-apply.lock"
+  if ab_has flock && ! flock -w "${AB_MON_LOCK_WAIT:-20}" 8; then
+    echo "[i] monitors.sh: otro ajuste en curso, me salto este" >&2
+    exec 8>&-; return 0
+  fi
+  if [ "$kick" = force ]; then maybe_kick force || true
+  elif [ "$kick" = auto ]; then maybe_kick || true; fi
   apply_xrandr
   sync_bspwm_settled || true
   apply_dpi >/dev/null
   apply_desktops
-  [ "$bar" = 1 ] || return 0
-  repaint_wallpaper
-  if [ -x "$HOME/.config/polybar/launch.sh" ]; then
-    setsid -f "$HOME/.config/polybar/launch.sh" >/dev/null 2>&1 </dev/null || true
+  date +%s >"$APPLY_STAMP"
+  # sxhkd may lose its key grabs after a screen change: reload it (SIGUSR1 = re-read + re-grab)
+  pkill -USR1 -u "$(id -u)" -x sxhkd 2>/dev/null || true
+  if [ "$bar" = 1 ]; then
+    repaint_wallpaper
+    if [ -x "$HOME/.config/polybar/launch.sh" ]; then
+      setsid -f "$HOME/.config/polybar/launch.sh" >/dev/null 2>&1 </dev/null || true
+    fi
   fi
+  exec 8>&-
+  return 0
 }
 
 # everything that should trigger a re-apply: every output with its connection and full geometry,
@@ -277,6 +441,7 @@ signature() {
 status() {
   local p; p=$(xrandr_policy)
   printf 'virt: %s\nxrandr: %s (%s)\n' "$(virt)" "$(head -n1 <<<"$p")" "$(tail -n1 <<<"$p")"
+  if in_vm && kick_enabled; then echo "kick de modo (VM): sí (vm_kick=off para desactivarlo)"; else echo "kick de modo (VM): no"; fi
   echo "== xrandr (activas)"; xr_active
   echo "== bspwm"; bspwm_rects
   local xf bf; xf=$(mktemp); bf=$(mktemp)
@@ -285,42 +450,66 @@ status() {
   rm -f "$xf" "$bf"
 }
 
+WATCH_PID="$AB_CACHE/monitors-watch.pid"
+
+# recent_apply → 0 when any apply finished less than $AB_MON_SUPPRESS (4) seconds ago
+recent_apply() {
+  local t now
+  t=$(cat "$APPLY_STAMP" 2>/dev/null) || return 1
+  [[ $t =~ ^[0-9]+$ ]] || return 1
+  now=$(date +%s)
+  (( now - t < ${AB_MON_SUPPRESS:-4} ))
+}
+
 watch() {
   ab_has xrandr || exit 0
+  local old
+  # one watcher: a bspwm reload re-runs bspwmrc → the old watcher is replaced by the new one
+  old=$(cat "$WATCH_PID" 2>/dev/null || true)
+  if [[ $old =~ ^[0-9]+$ ]] && [ "$old" != $$ ] && kill -0 "$old" 2>/dev/null &&
+     tr '\0' ' ' <"/proc/$old/cmdline" 2>/dev/null | grep -q 'monitors.sh --watch'; then
+    kill "$old" 2>/dev/null || true
+  fi
   exec 9>"$AB_CACHE/monitors-watch.lock"
-  if ab_has flock && ! flock -n 9; then exit 0; fi   # already watching
-  local last now fails=0
+  if ab_has flock && ! flock -w 3 9; then exit 0; fi   # another one still holds it
+  echo $$ >"$WATCH_PID"
+  local last now fails=0 prev i
   last=$(signature)
   while :; do
-    sleep 2
+    SLEEP 2
     pgrep -u "$(id -u)" -x bspwm >/dev/null 2>&1 || exit 0
     if ! now=$(signature) || [ -z "$now" ]; then
       fails=$((fails + 1)); (( fails > 5 )) && exit 0; continue
     fi
     fails=0
     [ "$now" = "$last" ] && continue
-    # plugging / VM resizing is noisy (vmware-user sends 2-4 changes in a row when you leave
-    # full screen / 2-monitor mode): wait until it is stable for 1 s (max ~8 s), apply once
-    local prev=$now i
+    # our own changes (kick, Super+Alt+Shift+r, bspwmrc) fire events too: ignore them for 4 s
+    if recent_apply; then last=$now; continue; fi
+    # VMware sends 2-4 changes in a row when you switch 1 ↔ 2 screens or leave full screen:
+    # wait until the layout is stable for 1 s (max ~8 s), then apply once
+    prev=$now
     for i in 1 2 3 4 5 6 7 8; do
-      sleep 1; now=$(signature)
+      SLEEP 1; now=$(signature)
       [ "$now" = "$prev" ] && break
       prev=$now
     done
     apply
-    sleep 1
+    SLEEP "${AB_MON_SUPPRESS:-4}"            # suppression window: the kick's own events
     last=$(signature)
+    [ "${AB_MON_WATCH_ONCE:-0}" = 1 ] && exit 0   # tests
   done
 }
 
 case "${1:---apply}" in
-  --apply)    apply "${2:-}" ;;
+  --apply)    shift; apply "$@" ;;
+  --fix)      apply --fix; echo "[+] pantallas reparadas (cambio de modo + layout)" ;;
+  --layout)   f=$(mktemp); modes_table >"$f"; layout_plan "$f"; rm -f "$f" ;;
   --watch)    watch ;;
   --dpi)      dpi_for "${2:-}" ;;
   --desktops) apply_desktops ;;
   --list)     outputs ;;
   --status)   status ;;
   --plan)     geometry_plan "${2:?xrandr file}" "${3:?bspwm file}" ;;
-  -h|--help)  sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//' ;;
-  *) echo "uso: monitors.sh [--apply [--no-bar]|--watch|--dpi [salida]|--desktops|--list|--status]" >&2; exit 2 ;;
+  -h|--help)  sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) echo "uso: monitors.sh [--apply [--no-bar] [--no-kick]|--fix|--layout|--watch|--dpi [salida]|--desktops|--list|--status]" >&2; exit 2 ;;
 esac

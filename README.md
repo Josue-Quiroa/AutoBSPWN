@@ -7,7 +7,7 @@ Barra limpia y redondeada · dashboard eww · animaciones y blur · bloqueo dese
 
 <br>
 
-![Versión](https://img.shields.io/badge/versión-3.4.3-B39DDB?style=for-the-badge)
+![Versión](https://img.shields.io/badge/versión-3.4.4-B39DDB?style=for-the-badge)
 ![Parrot](https://img.shields.io/badge/Parrot_OS-Home_%7C_Security-16B1C6?style=for-the-badge&logo=parrotsecurity&logoColor=white)
 ![Kali](https://img.shields.io/badge/Kali-compatible-557C94?style=for-the-badge&logo=kalilinux&logoColor=white)
 ![BSPWM](https://img.shields.io/badge/WM-bspwm-8A5CF6?style=for-the-badge)
@@ -25,7 +25,7 @@ Barra limpia y redondeada · dashboard eww · animaciones y blur · bloqueo dese
 ## Contenido
 
 - [Instalación](#instalación) · [Actualizar](#actualizar)
-- [Qué incluye](#qué-incluye) · [Novedades 3.4.3](#novedades-343) · [Novedades 3.4.2](#novedades-342) · [Novedades 3.4.1](#novedades-341) · [Novedades 3.4.0](#novedades-340) · [Novedades 3.3.1](#novedades-331) · [Novedades 3.3.0](#novedades-330)
+- [Qué incluye](#qué-incluye) · [Novedades 3.4.4](#novedades-344) · [Novedades 3.4.3](#novedades-343) · [Novedades 3.4.2](#novedades-342) · [Novedades 3.4.1](#novedades-341) · [Novedades 3.4.0](#novedades-340) · [Novedades 3.3.1](#novedades-331) · [Novedades 3.3.0](#novedades-330)
 - [Atajos esenciales](#atajos-esenciales)
 - [Flujo de pentest](#flujo-de-pentest)
 - [Herramientas de Parrot Security](#herramientas-de-parrot-security-opcional)
@@ -102,6 +102,31 @@ Hace `git pull --ff-only` en tu clon de AutoBSPWN y luego `./Install.sh --update
 | 🔎 **Rofi** | Menús compactos con iconos y esquinas redondeadas |
 | 🎯 **Pentest** | Target HUD con targets guardados, comandos rápidos, **scope guard**, recon `tscan`, **loot ledger** y timeline por target; VPN/lab switcher, portapapeles, launcher de tools |
 | ⚡ **Extras** | Calendario, hoja de atajos, capturas, menú de escritorio, scratchpad con hasta 4 terminales tmux (Alt+1…4) |
+
+### Novedades 3.4.4
+
+Doble monitor en **VMware / VirtualBox**, ahora sí al pasar de 1 ↔ 2 pantallas y al salir de
+pantalla completa:
+
+- **La causa:** VMware sólo aplica de verdad el cambio de pantallas cuando **la resolución cambia**.
+  Si el modo pedido es el mismo que ya tiene, lo ignora: xrandr y bspwm «coinciden» pero la segunda
+  pantalla se queda negra o a medio pintar. Por eso funcionaba a mano
+  `xrandr --output Virtual1 --mode 1600x900; sleep 1; xrandr … --mode 1920x1080 …`.
+- **El arreglo («kick»):** al detectar un cambio de monitores (1→2, 2→1) o una geometría que no es
+  la resolución objetivo, `monitors.sh` pone la pantalla principal en un modo intermedio que exista
+  (1600x900, si no 1280x720, si no cualquier otro), espera 1 s y aplica el layout: cada salida
+  conectada en su modo objetivo, la principal `--primary` en 0,0 y las demás `--right-of` en orden.
+  Después ajusta bspwm (`bspc monitor -g/-d/-r`), repinta el wallpaper, relanza polybar por monitor
+  y recarga sxhkd (`pkill -USR1 sxhkd`, recupera el teclado).
+- **Resolución objetivo:** el modo preferido (`+`) de cada salida; fíjala con `res=1920x1080` en
+  `~/.config/autobspwn/state` o con `AUTOBSPWN_RES`. `vm_kick=off` lo desactiva.
+- **Sin bucles:** el kick se hace **una sola vez por transición** (si VMware lo vuelve a cambiar, no
+  se pelea), los cambios que provoca se ignoran 4 s, nunca corren dos ajustes a la vez (`flock`), sólo
+  hay un vigilante (al recargar bspwm el nuevo reemplaza al viejo) y el flujo automático **nunca**
+  usa `bspc wm -r` (eso relanzaba bspwmrc y el vigilante; con el teclado a veces sin responder).
+- **Reparar a mano:** **`Super`+`Alt`+`Shift`+`r`**, «Reparar pantallas» en el menú del escritorio
+  (clic derecho) o `~/.config/bspwm/scripts/monitors.sh --fix`: hace el kick + layout aunque ya se
+  haya hecho. `monitors.sh --layout` muestra lo que aplicaría.
 
 ### Novedades 3.4.3
 
@@ -233,6 +258,7 @@ La lista completa (≈80 atajos + comandos) está en **[`ATAJOS.md`](ATAJOS.md)*
 | `Super`+`1`…`0` | Cambiar de escritorio (con varios monitores, I–X repartidos entre ellos) |
 | `Super`+`F12` · `Super`+`Alt`+`n` | 🎥 Modo presentación (oculta IPs, no graba) · 📝 nota rápida (`Alt`+`d` = ver / borrar) |
 | `Super`+`Shift`+`F12` · `Super`+`Alt`+`F12` | ⏺️ Grabar pantalla on/off (ffmpeg) · menú de grabación (carpeta) |
+| `Super`+`Alt`+`Shift`+`r` | 🖥️ Reparar pantallas (VMware/VirtualBox: cambio de modo + doble monitor) |
 | `Super`+`Alt`+`1…0` · `+Shift` | 🖥️ Ir al escritorio N del otro monitor · mandar la ventana ahí |
 | `Super`+`F2` | 📊 Dashboard eww (`Esc` o `Super`+`F2` lo cierran) |
 | `Super`+`q` · `Super`+`Shift`+`x` | Cerrar ventana · 🔒 bloquear |

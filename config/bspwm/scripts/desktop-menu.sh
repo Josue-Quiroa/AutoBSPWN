@@ -34,6 +34,7 @@ Atajos de teclado,$S/keys-help.sh,preferences-desktop-keyboard-shortcuts
 Ventanas ocultas,$S/hide-node.sh --menu,window-restore
 ^sep()
 Recargar bspwm,bspc wm -r,view-refresh
+Reparar pantallas,$S/monitors.sh --fix,video-display
 Bloquear,$S/lock.sh,system-lock-screen
 Apagar / reiniciar…,$S/power-menu.sh,system-shutdown
 CSV

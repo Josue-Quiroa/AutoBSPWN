@@ -1,5 +1,5 @@
-<!-- autobspwn-atajos v3.4.3 — generado con: ~/.config/bspwm/scripts/keys-help.sh --markdown -->
-# AutoBSPWN 3.4.3 — Atajos y comandos
+<!-- autobspwn-atajos v3.4.4 — generado con: ~/.config/bspwm/scripts/keys-help.sh --markdown -->
+# AutoBSPWN 3.4.4 — Atajos y comandos
 
 **Super** = tecla Windows. Esta misma lista sale en pantalla con **Super + F1** o **Super + /**
 (puedes escribir para filtrar y Enter ejecuta la acción). Se genera leyendo
@@ -37,6 +37,9 @@ Notas:
   y `Super + Alt + Shift + 1…0` manda la ventana ahí. Una barra por monitor y DPI automático.
   `desktops=each` en `~/.config/autobspwn/state` vuelve a I–X en cada monitor. En VMware /
   VirtualBox no se fuerza xrandr (manda el agente de la VM); `monitors.sh --status` diagnostica.
+- **Reparar pantallas** (`Super + Alt + Shift + r`, menú del escritorio o `monitors.sh --fix`):
+  en VMware/VirtualBox, si la segunda pantalla queda negra o a medio pintar, fuerza un cambio de
+  modo real (1600x900 → nativo) y reaplica el layout. Resolución: `res=1920x1080` en el state.
 
 ### Terminal y apps
 
@@ -165,6 +168,7 @@ Notas:
 | `` Super + Esc `` | Recargar atajos (sxhkd) |
 | `` Super + Shift + r `` | Reiniciar bspwm |
 | `` Super + Alt + r `` | Reiniciar bspwm (estilo r1vs3c) |
+| `` Super + Alt + Shift + r `` | Reparar pantallas (VMware / VirtualBox: fuerza un cambio de modo y reaplica el doble monitor) |
 | `` Super + Alt + q `` | Cerrar sesión (salir de bspwm) |
 
 ### Multimedia
