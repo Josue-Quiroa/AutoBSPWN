@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.4.0 — note <texto…>: one-line note for the active target (~/targets/<ip>/notes.md)
+# AutoBSPWN v3.4.2 — note <texto…>: one-line note for the active target (~/targets/<ip>/notes.md)
 # or ~/notes/inbox.md when there is none. Without text it opens the Super+Alt+n popup.
+#   note --list · note --rm N [M…|2,5|3-6] · note --rm-all · note --manage · note --help
 q="$HOME/.config/bspwm/scripts/quick-note.sh"
 [ -x "$q" ] || q="$(dirname "$(readlink -f "$0")")/../config/bspwm/scripts/quick-note.sh"
 exec "$q" "$@"

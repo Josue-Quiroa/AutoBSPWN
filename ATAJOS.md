@@ -1,5 +1,5 @@
-<!-- autobspwn-atajos v3.4.0 — generado con: ~/.config/bspwm/scripts/keys-help.sh --markdown -->
-# AutoBSPWN 3.4.0 — Atajos y comandos
+<!-- autobspwn-atajos v3.4.2 — generado con: ~/.config/bspwm/scripts/keys-help.sh --markdown -->
+# AutoBSPWN 3.4.2 — Atajos y comandos
 
 **Super** = tecla Windows. Esta misma lista sale en pantalla con **Super + F1** o **Super + /**
 (puedes escribir para filtrar y Enter ejecuta la acción). Se genera leyendo
@@ -22,11 +22,21 @@ Notas:
   (derecho: info del sistema) · rueda sobre el icono de paleta = cambiar tema
   (clic derecho: wallpapers) · clic en target/VPN/IP = copiar/menú.
 - **Modo presentación** (`Super + F12`): oculta target, IP de la VPN y de la red en la barra y
-  pausa las notificaciones; la barra muestra **REC** en rojo (clic = salir). Se recuerda tras
-  reiniciar (`~/.config/autobspwn/state`).
+  pausa las notificaciones; la barra muestra **OCULTO**. **No graba** (salvo que actives
+  «grabar al activar la presentación» en `Super + Alt + F12`). Se recuerda tras reiniciar
+  (`~/.config/autobspwn/state`).
+- **Grabar la pantalla** (`Super + Shift + F12`, necesita `ffmpeg`): graba el monitor en el que
+  estás, sin audio, en `~/Videos/AutoBSPWN/grabacion-AAAAmmdd-HHMMSS.mkv` (nunca sobrescribe) y al
+  parar avisa con la ruta exacta; la barra muestra **REC**. Carpeta: `Super + Alt + F12` (menú con
+  selector), `record_dir=/ruta` en el state o `AUTOBSPWN_RECORD_DIR`. Audio: `record_audio=1`.
+- **Notas rápidas** (`Super + Alt + n`): en el popup, `Alt + d` lista las notas para borrarlas
+  (`Shift + Enter` marca varias, confirma antes; «borrar todas» pide escribir `BORRAR`).
 - **Varios monitores**: los escritorios I–X se reparten entre los monitores (2 → I–V / VI–X) y
-  `Super + 1…0` va al escritorio global; una barra por monitor y DPI automático (HiDPI).
-  `desktops=each` en `~/.config/autobspwn/state` vuelve a I–X en cada monitor.
+  `Super + 1…0` va al escritorio global; `Super + Alt + 1…0` va al escritorio 1…10 **del otro
+  monitor** (el secundario; con 3+ el siguiente al principal; fíjalo con `second_monitor=NOMBRE`)
+  y `Super + Alt + Shift + 1…0` manda la ventana ahí. Una barra por monitor y DPI automático.
+  `desktops=each` en `~/.config/autobspwn/state` vuelve a I–X en cada monitor. En VMware /
+  VirtualBox no se fuerza xrandr (manda el agente de la VM); `monitors.sh --status` diagnostica.
 
 ### Terminal y apps
 
@@ -50,8 +60,10 @@ Notas:
 | `` Super + Shift + i `` | Fijar target (setFocus IP nombre) |
 | `` Super + Shift + c `` | Quitar target (clearFocus) |
 | `` Super + Alt + i `` | Targets guardados (favoritos): elegir uno lo hace el target activo |
-| `` Super + Alt + n `` | Nota rápida: una línea a las notas del target (o a ~/notes/inbox.md) |
-| `` Super + F12 `` | Modo presentación / grabación: oculta IPs, target y VPN y pausa notificaciones |
+| `` Super + Alt + n `` | Nota rápida: una línea a las notas del target (o a ~/notes/inbox.md); Alt+d en el popup = ver / borrar notas |
+| `` Super + F12 `` | Modo presentación: oculta IPs, target y VPN de la barra y pausa notificaciones (no graba salvo record_with_present=1) |
+| `` Super + Shift + F12 `` | Grabar la pantalla (ffmpeg, monitor actual, sin audio) on/off → ~/Videos/AutoBSPWN |
+| `` Super + Alt + F12 `` | Menú de presentación / grabación (carpeta de grabaciones, abrir carpeta, grabar al presentar) |
 | `` Super + v `` | VPN / lab switcher |
 | `` Super + Shift + v `` | Reconectar la última VPN |
 | `` Super + p `` | Launcher de tools de pentest |
@@ -109,6 +121,8 @@ Notas:
 |---|---|
 | `` Super + {1-9,0} `` | Ir al escritorio 1-10 |
 | `` Super + Shift + {1-9,0} `` | Enviar la ventana al escritorio 1-10 (y seguirla) |
+| `` Super + Alt + {1-9,0} `` | Ir al escritorio 1-10 del OTRO monitor (el secundario; con 3+ el siguiente al principal) |
+| `` Super + Alt + Shift + {1-9,0} `` | Enviar la ventana al escritorio 1-10 del otro monitor (y seguirla) |
 | `` Super + {[,]} `` | Escritorio anterior / siguiente |
 | `` Super + Shift + ` `` | Volver al último escritorio |
 
@@ -197,6 +211,8 @@ Notas:
 | `autobspwn-update --list-backups` · `--rollback [N]` | Ver los backups · volver al de antes del último update (tus targets no se tocan) |
 | `autobspwn-doctor [--quiet]` | Revisa dependencias, versiones y configs: OK / WARN / FAIL (exit 0/1/2) |
 | `note <texto>` | Nota rápida al `notes.md` del target (o `~/notes/inbox.md`) = Super+Alt+n |
+| `note --list` · `note --rm N` · `note --rm-all` | Ver las notas numeradas · borrar la N (o `2,5`, `3-6`) · borrar todas (pide `BORRAR`) |
+| `~/.config/bspwm/scripts/record.sh --dir` · `--set-dir <ruta>` · `--last` | Carpeta de grabaciones · cambiarla (`default` = ~/Videos/AutoBSPWN) · última grabación |
 | `mkt <nombre>` | Crea y entra en `~/Machines/<nombre>/{nmap,content,exploits,scripts,loot}` |
 | `ports archivo.nmap` | Lista los puertos abiertos separados por coma (para `nmap -p`) |
 | `extractHosts [archivo]` | Extrae las IPs únicas de un archivo o de la entrada estándar |

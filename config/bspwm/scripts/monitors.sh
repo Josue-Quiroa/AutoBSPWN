@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.4.0 — HiDPI + multi-monitor (automatic; bspwmrc runs it)
-#   monitors.sh [--apply]        new outputs on / unplugged off (xrandr), Xft.dpi + rofi DPI,
-#                                desktops split across the monitors, one polybar per monitor
-#   monitors.sh --apply --no-bar   same without relaunching polybar (bspwmrc does it later)
-#   monitors.sh --watch          follow plug / unplug every 3 s (one instance; bspwmrc starts it)
+# AutoBSPWN v3.4.2 — HiDPI + multi-monitor (automatic; bspwmrc runs it)
+#   monitors.sh [--apply]        new outputs on / unplugged off (xrandr, see policy), bspwm monitors
+#                                synced with xrandr, Xft.dpi + rofi DPI, desktops split across the
+#                                monitors, wallpaper repainted, one polybar per monitor
+#   monitors.sh --apply --no-bar   same without relaunching polybar / wallpaper (bspwmrc does it)
+#   monitors.sh --watch          follow plug / unplug / resolution changes (one instance)
 #   monitors.sh --dpi [OUTPUT]   DPI for that output (default: primary)   --list   outputs
+#   monitors.sh --status         xrandr policy, outputs and bspwm monitors (diagnostics)
 # DPI: physical size from xrandr → 96/120/144/168/192 (VMs report 0 mm → 96, or 192 when the
 # screen is 3200+ px wide). Force it in ~/.config/autobspwn/state with dpi=144 (dpi=auto = default).
 # Desktops (state: desktops=split, default): I–X split in order (2 monitors: I–V / VI–X);
-# desktops=each keeps I–X on every monitor (the pre-3.4 layout). xrandr=off: never touch outputs.
+# desktops=each keeps I–X on every monitor (the pre-3.4 layout).
+# xrandr policy (state xrandr=auto|on|off): auto (default) turns new outputs on / unplugged ones
+# off, EXCEPT in VMware / VirtualBox / SPICE guests where open-vm-tools (vmware-user), VBoxClient
+# or spice-vdagent own the layout: there we only react to what they set. on = always, off = never.
+# v3.4.2: changes are detected by full geometry (size + position of every output, root size,
+# RandR monitors and bspwm's monitors), not only by name; bspwm's monitors are re-synced with
+# xrandr when they disagree (resize / add / remove ghosts), then desktops, wallpaper and bars.
 # shellcheck source=/dev/null
 . "$(dirname "$(readlink -f "$0")")/lib.sh"
 
@@ -50,9 +58,40 @@ dpi_for() {
   ab_calc_dpi "$px" "$mmw"
 }
 
+# virt: AUTOBSPWN_VIRT (tests) or systemd-detect-virt (none, vmware, oracle, kvm, …)
+virt() {
+  local v=${AUTOBSPWN_VIRT:-}
+  [ -n "$v" ] || { ab_has systemd-detect-virt && v=$(systemd-detect-virt -v 2>/dev/null); }
+  printf '%s\n' "${v:-none}"
+}
+
+# guest_agent: the program that resizes the screen for the host window, if any
+guest_agent() {
+  local u; u=$(id -u)
+  if [ -n "${AUTOBSPWN_GUEST_AGENT+x}" ]; then printf '%s\n' "$AUTOBSPWN_GUEST_AGENT"; return 0; fi
+  if pgrep -u "$u" -f 'vmware-user|vmtoolsd.*vmusr' >/dev/null 2>&1; then echo vmware-user
+  elif pgrep -u "$u" -f 'VBoxClient.*(vmsvga|display)' >/dev/null 2>&1; then echo VBoxClient
+  elif pgrep -f spice-vdagent >/dev/null 2>&1; then echo spice-vdagent
+  else
+    case "$(virt)" in vmware) echo 'vmware (open-vm-tools)' ;; oracle) echo 'virtualbox (VBoxClient)' ;; esac
+  fi
+}
+
+# xrandr_policy → on | off  (+ reason on stderr-free 2nd line for --status)
+xrandr_policy() {
+  local p a
+  p=$(ab_state_get xrandr auto)
+  case "$p" in
+    on|off) printf '%s\nstate xrandr=%s\n' "$p" "$p" ;;
+    *) a=$(guest_agent)
+       if [ -n "$a" ]; then printf 'off\nauto: lo gestiona %s (solo se reacciona)\n' "$a"
+       else printf 'on\nauto: sin agente de VM\n'; fi ;;
+  esac
+}
+
 apply_xrandr() {
   ab_has xrandr || return 0
-  [ "$(ab_state_get xrandr auto)" = off ] && return 0
+  [ "$(xrandr_policy | head -n1)" = off ] && return 0
   local name conn geo mm prim last='' lastx=-1 x w changed=0
   local -a on=() off=()
   while IFS=$'\t' read -r name conn geo mm prim; do
@@ -110,19 +149,105 @@ apply_desktops() {
   done
 }
 
+# active xrandr outputs: name <TAB> WxH+X+Y   (connected or not: what is really lit)
+xr_active() { outputs | awk -F'\t' '$3 != "-" { print $1 "\t" $3 }'; }
+
+# bspwm's monitors: name <TAB> WxH+X+Y   (from the first "rectangle" of each monitor's tree)
+bspwm_rects() {
+  ab_has bspc || return 0
+  local m r
+  while IFS= read -r m; do
+    [ -n "$m" ] || continue
+    r=$(bspc query -T -m "$m" 2>/dev/null | grep -o '"rectangle":{[^}]*}' | head -n1 |
+        sed -E 's/.*"x":(-?[0-9]+),"y":(-?[0-9]+),"width":([0-9]+),"height":([0-9]+).*/\3x\4+\1+\2/')
+    [[ $r =~ ^[0-9]+x[0-9]+\+-?[0-9]+\+-?[0-9]+$ ]] || r=-
+    printf '%s\t%s\n' "$m" "$r"
+  done < <(bspc query -M --names 2>/dev/null)
+}
+
+# geometry_plan <xrandr file> <bspwm file>  → actions to make bspwm match xrandr, one per line:
+#   geo <name> <WxH+X+Y>   resize / move    add <name> <WxH+X+Y>   new monitor    rm <name>   ghost
+# Nothing when xrandr reports no active output (can't tell) — never removes every monitor.
+geometry_plan() {
+  awk -F'\t' '
+    # mirrored outputs (same geometry) are one monitor for bspwm (merge_overlapping_monitors)
+    FNR == NR { if ($1 != "" && $2 != "-" && !($2 in seen)) { seen[$2] = 1; xr[$1] = $2; xo[++nx] = $1 }; next }
+    $1 != "" { bw[$1] = $2; bo[++nb] = $1 }
+    END {
+      if (nx == 0 || nb == 0) exit
+      for (i = 1; i <= nx; i++) { n = xo[i]
+        if (!(n in bw)) print "add " n " " xr[n]
+        else if (bw[n] != xr[n]) print "geo " n " " xr[n] }
+      for (i = 1; i <= nb; i++) if (!(bo[i] in xr)) print "rm " bo[i]
+    }' "$1" "$2"
+}
+
+# sync_bspwm: apply geometry_plan with bspc. Ghosts give their desktops to a monitor that stays.
+sync_bspwm() {
+  ab_has bspc || return 0
+  local xf bf act name geo keep d changed=1
+  xf=$(mktemp) && bf=$(mktemp) || return 0
+  xr_active >"$xf"; bspwm_rects >"$bf"
+  keep=$(cut -f1 "$xf" | grep -Fxf - <(cut -f1 "$bf") | head -n1)
+  while read -r act name geo; do
+    case "$act" in
+      geo) bspc monitor "$name" -g "$geo" 2>/dev/null || true ;;
+      add) bspc wm -a "$name" "$geo" 2>/dev/null || true ;;
+      rm)  [ -n "$keep" ] || keep=$(cut -f1 "$xf" | head -n1)
+           [ -n "$keep" ] || continue
+           while IFS= read -r d; do
+             [ -n "$d" ] && bspc desktop "$d" -m "$keep" 2>/dev/null || true
+           done < <(bspc query -D -m "$name" 2>/dev/null)
+           bspc monitor "$name" -r 2>/dev/null || true ;;
+      *) continue ;;
+    esac
+    changed=0
+  done < <(geometry_plan "$xf" "$bf")
+  rm -f "$xf" "$bf"
+  return "$changed"
+}
+
+repaint_wallpaper() {
+  local def="$HOME/.config/bspwm/walls/cherry-field-mountains.jpg"
+  if [ -f "$HOME/.fehbg" ]; then sh "$HOME/.fehbg" >/dev/null 2>&1 || true   # feh fills every monitor
+  elif [ -f "$def" ] && ab_has feh; then feh --no-fehbg --bg-fill "$def" >/dev/null 2>&1 || true
+  fi
+}
+
 apply() {
   local bar=1
   [ "${1:-}" = --no-bar ] && bar=0
   apply_xrandr
+  sync_bspwm || true
   apply_dpi >/dev/null
   apply_desktops
-  if [ "$bar" = 1 ] && [ -x "$HOME/.config/polybar/launch.sh" ]; then
+  [ "$bar" = 1 ] || return 0
+  repaint_wallpaper
+  if [ -x "$HOME/.config/polybar/launch.sh" ]; then
     setsid -f "$HOME/.config/polybar/launch.sh" >/dev/null 2>&1 </dev/null || true
   fi
 }
 
+# everything that should trigger a re-apply: every output with its connection and full geometry,
+# the root size, RandR 1.5 monitors (VMware may report them differently) and bspwm's view
 signature() {
-  { outputs | cut -f1-3; ab_has bspc && bspc query -M --names 2>/dev/null; } | paste -sd' ' -
+  {
+    outputs | cut -f1-3
+    xrandr --current 2>/dev/null | sed -n 's/^Screen [0-9]*:.*current \([0-9]* x [0-9]*\).*/root \1/p'
+    xrandr --listmonitors 2>/dev/null | tail -n +2
+    bspwm_rects
+  } | paste -sd' ' -
+}
+
+status() {
+  local p; p=$(xrandr_policy)
+  printf 'virt: %s\nxrandr: %s (%s)\n' "$(virt)" "$(head -n1 <<<"$p")" "$(tail -n1 <<<"$p")"
+  echo "== xrandr (activas)"; xr_active
+  echo "== bspwm"; bspwm_rects
+  local xf bf; xf=$(mktemp); bf=$(mktemp)
+  xr_active >"$xf"; bspwm_rects >"$bf"
+  echo "== diferencias"; geometry_plan "$xf" "$bf"
+  rm -f "$xf" "$bf"
 }
 
 watch() {
@@ -139,8 +264,16 @@ watch() {
     fi
     fails=0
     [ "$now" = "$last" ] && continue
-    sleep 1                                   # plugging is noisy: settle, then apply once
+    # plugging / VM resizing is noisy (vmware-user may resize 2-3 times): wait until it is
+    # stable for one second (max ~6 s), then apply once
+    local prev=$now i
+    for i in 1 2 3 4 5 6; do
+      sleep 1; now=$(signature)
+      [ "$now" = "$prev" ] && break
+      prev=$now
+    done
     apply
+    sleep 1
     last=$(signature)
   done
 }
@@ -151,6 +284,8 @@ case "${1:---apply}" in
   --dpi)      dpi_for "${2:-}" ;;
   --desktops) apply_desktops ;;
   --list)     outputs ;;
-  -h|--help)  sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//' ;;
-  *) echo "uso: monitors.sh [--apply [--no-bar]|--watch|--dpi [salida]|--desktops|--list]" >&2; exit 2 ;;
+  --status)   status ;;
+  --plan)     geometry_plan "${2:?xrandr file}" "${3:?bspwm file}" ;;
+  -h|--help)  sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) echo "uso: monitors.sh [--apply [--no-bar]|--watch|--dpi [salida]|--desktops|--list|--status]" >&2; exit 2 ;;
 esac

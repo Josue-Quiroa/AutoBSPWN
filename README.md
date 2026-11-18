@@ -7,7 +7,7 @@ Barra limpia y redondeada · dashboard eww · animaciones y blur · bloqueo dese
 
 <br>
 
-![Versión](https://img.shields.io/badge/versión-3.4.1-B39DDB?style=for-the-badge)
+![Versión](https://img.shields.io/badge/versión-3.4.2-B39DDB?style=for-the-badge)
 ![Parrot](https://img.shields.io/badge/Parrot_OS-Home_%7C_Security-16B1C6?style=for-the-badge&logo=parrotsecurity&logoColor=white)
 ![Kali](https://img.shields.io/badge/Kali-compatible-557C94?style=for-the-badge&logo=kalilinux&logoColor=white)
 ![BSPWM](https://img.shields.io/badge/WM-bspwm-8A5CF6?style=for-the-badge)
@@ -25,7 +25,7 @@ Barra limpia y redondeada · dashboard eww · animaciones y blur · bloqueo dese
 ## Contenido
 
 - [Instalación](#instalación) · [Actualizar](#actualizar)
-- [Qué incluye](#qué-incluye) · [Novedades 3.4.1](#novedades-341) · [Novedades 3.4.0](#novedades-340) · [Novedades 3.3.1](#novedades-331) · [Novedades 3.3.0](#novedades-330)
+- [Qué incluye](#qué-incluye) · [Novedades 3.4.2](#novedades-342) · [Novedades 3.4.1](#novedades-341) · [Novedades 3.4.0](#novedades-340) · [Novedades 3.3.1](#novedades-331) · [Novedades 3.3.0](#novedades-330)
 - [Atajos esenciales](#atajos-esenciales)
 - [Flujo de pentest](#flujo-de-pentest)
 - [Herramientas de Parrot Security](#herramientas-de-parrot-security-opcional)
@@ -102,6 +102,19 @@ Hace `git pull --ff-only` en tu clon de AutoBSPWN y luego `./Install.sh --update
 | 🔎 **Rofi** | Menús compactos con iconos y esquinas redondeadas |
 | 🎯 **Pentest** | Target HUD con targets guardados, comandos rápidos, **scope guard**, recon `tscan`, **loot ledger** y timeline por target; VPN/lab switcher, portapapeles, launcher de tools |
 | ⚡ **Extras** | Calendario, hoja de atajos, capturas, menú de escritorio, scratchpad con hasta 4 terminales tmux (Alt+1…4) |
+
+### Novedades 3.4.2
+
+<details open>
+<summary>Escritorios del otro monitor, borrar notas, grabación de pantalla y arreglo de doble monitor en VMware</summary>
+
+- **Escritorios del otro monitor:** `Super`+`1…0` sigue igual (escritorios del monitor principal con `desktops=split`: 1–5 principal, 6–0 segundo). Nuevo **`Super`+`Alt`+`1…0`**: ir al escritorio 1, 2, 3… **del otro monitor**, y **`Super`+`Alt`+`Shift`+`1…0`**: mandar ahí la ventana (y seguirla). Funciona con `desktops=split` y `desktops=each`. *El otro monitor* es el secundario; con 3 o más, el siguiente al principal (orden de bspwm, el principal es el `primary` de xrandr o el primero); se puede fijar con `second_monitor=HDMI-1` en `~/.config/autobspwn/state`. Con un solo monitor se comporta como `Super`+`número`. (No es `Super`+`Ctrl`+`número` porque esa combinación ya ajusta la proporción de la preselección.)
+- **Borrar notas rápidas:** en el popup de `Super`+`Alt`+`n` pulsa **`Alt`+`d`** (rofi) o el botón **Ver / borrar notas** (yad): lista las notas del target activo (o del inbox), **`Shift`+`Enter`** marca varias, `Enter` borra con confirmación; «Borrar TODAS» pide escribir `BORRAR`. En la terminal: `note --list`, `note --rm 2` (o `2,5`, `3-6`), `note --rm-all`, `note --manage`. Sólo se borran las líneas de nota (`- [fecha] …`); tus encabezados quedan. En el timeline queda la acción y el número, nunca el texto.
+- **Modo presentación, sin confusión:** `Super`+`F12` **no graba**: oculta en la barra la IP/nombre del target, la VPN y la IP local y pausa las notificaciones; la notificación al activarlo lo dice y te indica cómo grabar. La barra muestra **OCULTO** (presentación) y **REC** sólo cuando de verdad se graba.
+- **Grabación de pantalla** (`record.sh`, necesita `ffmpeg`; si falta, avisa): **`Super`+`Shift`+`F12`** empieza/para. Graba **el monitor en el que estás** (`record_monitor=all` = toda la pantalla), sin audio (`record_audio=1` para el micrófono/“default” de PulseAudio), en `grabacion-AAAAmmdd-HHMMSS.mkv` (nunca sobrescribe). Al parar, la notificación dice **la ruta exacta**. Carpeta: `~/Videos/AutoBSPWN` por defecto; cámbiala con **`Super`+`Alt`+`F12`** (menú: selector de carpeta con yad o rofi, abrir carpeta, volver a la de por defecto, «grabar al activar la presentación»), con `record_dir=/ruta` en `~/.config/autobspwn/state` o con `AUTOBSPWN_RECORD_DIR` (tiene prioridad). Con `record_with_present=1`, `Super`+`F12` también graba y al salir te dice dónde quedó. En la barra: clic derecho en el indicador = grabar/parar, clic central = menú.
+- **Doble monitor en VMware / VirtualBox:** al activar la segunda pantalla podía quedar la mitad derecha con rayas (sin wallpaper ni escritorio) y una sola barra estirada. Ahora `monitors.sh --watch` detecta cambios por **geometría completa** (tamaño y posición de cada salida, tamaño de la pantalla, monitores RandR y los de bspwm) y espera a que el agente de la VM termine de redimensionar; sincroniza los monitores de bspwm con xrandr (ajusta geometría, añade los que faltan y quita los fantasma moviendo antes sus escritorios), reparte los escritorios, **repinta el wallpaper** en todos los monitores y relanza **una polybar por monitor**. En VMware, VirtualBox y SPICE (open-vm-tools/`vmware-user`, `VBoxClient`, `spice-vdagent`) ya no se fuerza `xrandr --auto/--off` (el agente manda; `xrandr=on` en el state lo fuerza). Diagnóstico: `~/.config/bspwm/scripts/monitors.sh --status`.
+
+</details>
 
 ### Novedades 3.4.1
 
@@ -199,7 +212,9 @@ La lista completa (≈80 atajos + comandos) está en **[`ATAJOS.md`](ATAJOS.md)*
 | `Super`+`s` · `Super`+`Shift`+`s` | 🪟 Ventana flotante↔mosaico · escritorio en modo flotante |
 | `Super`+arrastre izq. / der. / central | Mover · redimensionar (esquina) · redimensionar (lado) |
 | `Super`+`1`…`0` | Cambiar de escritorio (con varios monitores, I–X repartidos entre ellos) |
-| `Super`+`F12` · `Super`+`Alt`+`n` | 🎥 Modo presentación (oculta IPs) · 📝 nota rápida |
+| `Super`+`F12` · `Super`+`Alt`+`n` | 🎥 Modo presentación (oculta IPs, no graba) · 📝 nota rápida (`Alt`+`d` = ver / borrar) |
+| `Super`+`Shift`+`F12` · `Super`+`Alt`+`F12` | ⏺️ Grabar pantalla on/off (ffmpeg) · menú de grabación (carpeta) |
+| `Super`+`Alt`+`1…0` · `+Shift` | 🖥️ Ir al escritorio N del otro monitor · mandar la ventana ahí |
 | `Super`+`F2` | 📊 Dashboard eww (`Esc` o `Super`+`F2` lo cierran) |
 | `Super`+`q` · `Super`+`Shift`+`x` | Cerrar ventana · 🔒 bloquear |
 

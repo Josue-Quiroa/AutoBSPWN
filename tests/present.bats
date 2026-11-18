@@ -10,6 +10,7 @@ setup() {
   done
   PM="$REPO/config/bspwm/scripts/present-mode.sh"
   mkdir -p "$HOME/.config/polybar"
+  export AUTOBSPWN_GUEST_AGENT=''      # no VM agent: the xrandr policy is "on" (see vm tests)
 }
 
 @test "state file: set / get / keep other keys / atomic" {
@@ -36,7 +37,7 @@ setup() {
   run "$PM" --status
   [ "$status" -eq 0 ] && [ "$output" = on ]
   run "$PM" --bar
-  [[ "$output" == *"REC"* ]]
+  [[ "$output" == *"OCULTO"* ]] && [[ "$output" != *"REC"* ]]   # hiding ≠ recording
   run "$PM" --toggle
   grep -qx present=0 "$HOME/.config/autobspwn/state"
   grep -q 'dunstctl set-paused false' "$STUBS/calls.log"

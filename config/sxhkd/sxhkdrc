@@ -1,4 +1,4 @@
-# AutoBSPWN sxhkd v3.4.0
+# AutoBSPWN sxhkd v3.4.2
 # Convention (read by keys-help.sh → Super+F1 and by ATAJOS.md):
 #   "## Categoría" starts a group · "# descripción" goes right above each chord.
 # Extra chords inspired by yoodreamer/AutoBSPWM and r1vs3c/auto-bspwm (own config, no duplicates).
@@ -45,12 +45,18 @@ super + shift + c
 # Targets guardados (favoritos): elegir uno lo hace el target activo
 super + alt + i
     $HOME/.config/bspwm/scripts/target-menu.sh --saved
-# Nota rápida: una línea a las notas del target (o a ~/notes/inbox.md)
+# Nota rápida: una línea a las notas del target (o a ~/notes/inbox.md); Alt+d en el popup = ver / borrar notas
 super + alt + n
     $HOME/.config/bspwm/scripts/quick-note.sh
-# Modo presentación / grabación: oculta IPs, target y VPN y pausa notificaciones
+# Modo presentación: oculta IPs, target y VPN de la barra y pausa notificaciones (no graba salvo record_with_present=1)
 super + F12
     $HOME/.config/bspwm/scripts/present-mode.sh --toggle
+# Grabar la pantalla (ffmpeg, monitor actual, sin audio) on/off → ~/Videos/AutoBSPWN
+super + shift + F12
+    $HOME/.config/bspwm/scripts/record.sh --toggle
+# Menú de presentación / grabación (carpeta de grabaciones, abrir carpeta, grabar al presentar)
+super + alt + F12
+    $HOME/.config/bspwm/scripts/record.sh --menu
 # VPN / lab switcher
 super + v
     $HOME/.config/bspwm/scripts/vpn-menu.sh
@@ -170,6 +176,12 @@ super + {1-9,0}
 # Enviar la ventana al escritorio 1-10 (y seguirla)
 super + shift + {1-9,0}
     $HOME/.config/bspwm/scripts/desktop.sh send {1-9,10}
+# Ir al escritorio 1-10 del OTRO monitor (el secundario; con 3+ el siguiente al principal)
+super + alt + {1-9,0}
+    $HOME/.config/bspwm/scripts/desktop.sh other-focus {1-9,10}
+# Enviar la ventana al escritorio 1-10 del otro monitor (y seguirla)
+super + alt + shift + {1-9,0}
+    $HOME/.config/bspwm/scripts/desktop.sh other-send {1-9,10}
 # Escritorio anterior / siguiente
 super + bracket{left,right}
     bspc desktop -f {prev,next}.local

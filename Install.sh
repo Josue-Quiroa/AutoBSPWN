@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# AutoBSPWN v3.4.1 - BSPWM desktop installer
+# AutoBSPWN v3.4.2 - BSPWM desktop installer
 # Target: Parrot OS Home Edition (Parrot 6 "lory" / Debian 12 MATE and Parrot 7 "echo" /
 #         Debian 13 KDE). Also Parrot Security and Kali Linux.
+# v3.4.2: Super+Alt+1..0 = desktops of the other monitor, delete quick notes (note --rm,
+#       Alt+d in the popup), screen recording (record.sh, Super+Shift+F12, configurable folder),
+#       VMware / VirtualBox multi-monitor fix (bspwm synced with xrandr by full geometry).
 # v3.4.0: autobspwn-doctor, autobspwn-update --rollback, presentation mode (Super+F12), quick
 #       notes (Super+Alt+n), automatic HiDPI + multi-monitor (monitors.sh).
 # v3.3.1: Super+u scratchpad with up to 4 tmux terminals as tabs (~/.config/autobspwn/scratch.tmux.conf)
@@ -40,7 +43,7 @@ cd "$SCRIPT_DIR"
 
 : "${USER:=$(id -un)}"
 export USER
-VERSION="3.4.1"
+VERSION="3.4.2"
 NICKNAME="${NICKNAME:-}"   # v3: ignored (wallpapers no longer carry text); kept so old commands still work
 SKIP_UPGRADE=0
 SKIP_FONTS=0
@@ -1246,7 +1249,7 @@ verify_install() {
   else
     warn "Opcional ausente: eww (dashboard Super+F2)"
   fi
-  for b in yad jgmenu maim xprop openvpn wg-quick nmcli nmap nm-applet xclip jq; do
+  for b in yad jgmenu maim xprop openvpn wg-quick nmcli nmap nm-applet xclip jq ffmpeg; do
     command -v "$b" >/dev/null 2>&1 && ok "$b" || warn "Opcional ausente: $b"
   done
   local p

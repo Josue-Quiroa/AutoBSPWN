@@ -100,6 +100,7 @@ need WARN xrandr "multi-monitor y HiDPI" x11-xserver-utils
 need WARN xrdb "Xft.dpi (HiDPI)" x11-xserver-utils
 need WARN zsh "shell con los comandos de AutoBSPWN"
 if has nmap; then ok "nmap — tscan y comandos rápidos"; else info "nmap no está: tscan no funcionará (sudo apt install nmap)"; fi
+if has ffmpeg; then ok "ffmpeg — grabación de pantalla (Super+Shift+F12)"; else info "ffmpeg no está: la grabación (Super+Shift+F12) no funcionará (sudo apt install ffmpeg)"; fi
 if has fc-list; then
   if fc-list 2>/dev/null | grep -qi 'JetBrainsMono Nerd'; then ok "fuente JetBrainsMono Nerd Font"
   else warn "falta JetBrainsMono Nerd Font (iconos rotos en la barra)"; hint "./Install.sh (instala las Nerd Fonts)"; fi
