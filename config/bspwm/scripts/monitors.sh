@@ -321,12 +321,12 @@ in_vm() {
 }
 
 kick_enabled() {
-  [ "${1:-}" = force ] || [ "$(ab_state_get vm_kick auto)" = off ] || return 1
+  [ "${1:-}" != force ] && [ "$(ab_state_get vm_kick auto)" = off ] && return 1
   [ "$(ab_state_get xrandr auto)" = off ] && return 1
   ab_has xrandr
 }
 
-# target_mode  
+# target_mode
 target_mode() {
   local pref=$1 list=",$2," want=${AUTOBSPWN_RES:-}
   [ -n "$want" ] || want=$(ab_state_get res auto)
@@ -336,7 +336,7 @@ target_mode() {
   list=${list#,}; echo "${list%%,*}"
 }
 
-# intermediate_mode     → another existing mode, or nothing
+# intermediate_mode → another existing mode, or nothing
 intermediate_mode() {
   local target=$1 cur=$2 m
   local -a all
@@ -349,8 +349,7 @@ intermediate_mode() {
   return 1
 }
 
-# layout_plan  → lines:  primary     ·  right  
-#   · off    (lit but disconnected)   · want     (expected result)
+# layout_plan → lines: primary · right · off (lit but disconnected) · want (expected result)
 layout_plan() {
   local f=$1 name conn geo prim pref ml first='' x=0 mode cur inter
   local -a order=() revived=()
@@ -382,10 +381,10 @@ layout_plan() {
   done
   # off: encendidas pero desconectadas y NO revividas
   awk -F'\t' '$2 == 0 && $3 != "-" { print "off " $1 }' "$f" |
-    { if [ ${#revived[@]} -gt 0 ]; then grep -vxFf <(printf 'off %s\n' "${revived[@]}"); else cat; fi; }
+    { if [ ${#revived[@]} -gt 0 ]; then grep -vxFf <(printf 'off %s\n' "${revived[@]}") || true; else cat; fi; }
 }
 
-# layout_ok    → 0 when every output already has its target geometry
+# layout_ok → 0 when every output already has its target geometry
 layout_ok() {
   local f=$1 plan=$2 name w
   ! grep -q '^off ' <<<"$plan" || return 1
@@ -397,7 +396,7 @@ layout_ok() {
 
 KICK_LAST="$AB_CACHE/monitors-kick.last"
 
-# maybe_kick [force]  → 0 when a kick was done
+# maybe_kick [force] → 0 when a kick was done
 maybe_kick() {
   local force=${1:-} f plan key prev
   kick_enabled "$force" || return 1
@@ -443,7 +442,8 @@ run_kick() {
 APPLY_STAMP="$AB_CACHE/monitors-applied"
 
 apply() {
-  local bar=1 kick=auto a
+  local bar=1 kick=auto a rc=0
+  REVIVE=0
   for a; do
     case "$a" in --no-bar) bar=0 ;; --fix) kick=force ;; --no-kick) kick=no ;; esac
   done
@@ -454,7 +454,7 @@ apply() {
     echo "[i] monitors.sh: otro ajuste en curso, me salto este" >&2
     exec 8>&-; return 1
   fi
-  if [ "$kick" = force ]; then maybe_kick force || true
+  if [ "$kick" = force ]; then maybe_kick force || rc=1
   elif [ "$kick" = auto ]; then maybe_kick || true; fi
   apply_xrandr
   sync_bspwm_settled || true
@@ -466,8 +466,11 @@ apply() {
   if [ "$bar" = 1 ]; then
     repaint_wallpaper
     if [ -x "$HOME/.config/polybar/launch.sh" ]; then
-      setsid -f "$HOME/.config/polybar/launch.sh" >/dev/null 2>&1 &-
-  return 0
+      setsid -f "$HOME/.config/polybar/launch.sh" </dev/null >/dev/null 2>&1 8>&- 9>&-
+    fi
+  fi
+  exec 8>&-
+  return "$rc"
 }
 
 # everything that should trigger a re-apply: every output with its connection and full geometry,
@@ -547,7 +550,7 @@ watch() {
 }
 
 case "${1:---apply}" in
-  --apply)    shift; apply "$@" ;;
+  --apply)    [ $# -gt 0 ] && shift; apply "$@" ;;
   --fix)      if apply --fix; then echo "[+] pantallas reparadas (cambio de modo + layout)"
               else echo "[!] no aplicado: otro ajuste en curso o xrandr falló"; fi ;;
   --layout)   REVIVE=1; f=$(mktemp); modes_table >"$f"; layout_plan "$f"; rm -f "$f" ;;
@@ -560,6 +563,3 @@ case "${1:---apply}" in
   -h|--help)  sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//' ;;
   *) echo "uso: monitors.sh [--apply [--no-bar] [--no-kick]|--fix|--layout|--watch|--dpi [salida]|--desktops|--list|--status]" >&2; exit 2 ;;
 esac
-EOF
-chmod +x ~/.config/bspwm/scripts/monitors.sh
-bash -n ~/.config/bspwm/scripts/monitors.sh && echo "sintaxis OK"
